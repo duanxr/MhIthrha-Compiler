@@ -57,7 +57,7 @@ public class CompilerCore {
     Boolean success = compiler.getTask(printWriter, fileManager, diagnosticListener, options, null,
         compilationUnits).call();
     if (success) {
-      defineClasses(fileManager.getOutputClasses());
+      defineClasses(fileManager.getCompiledClasses());
     }
     return success;
   }
@@ -68,7 +68,6 @@ public class CompilerCore {
       List<Map.Entry<String, JavaMemoryClass>> entries = new ArrayList<>();
       for (Map.Entry<String, JavaMemoryClass> entry : outputClasses.entrySet()) {
         String className = entry.getKey();
-        className = className.replaceAll("/", ".");
         if (!classesCache.containsKey(className)) {
           entries.add(entry);
         }

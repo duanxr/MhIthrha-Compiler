@@ -1,6 +1,6 @@
 package com.duanxr.mhithrha.component;
 
-import com.duanxr.mhithrha.component.CallbackByteArrayOutputStream;
+import com.google.common.base.Strings;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -11,9 +11,11 @@ import lombok.SneakyThrows;
 /**
  * @author 段然 2022/9/5
  */
-public class JavaMemoryClass extends SimpleJavaFileObject  implements RuntimeJavaFileObject{
+public class JavaMemoryClass extends SimpleJavaFileObject implements RuntimeJavaFileObject {
+
   private final long timeout;
   private volatile byte[] bytes;
+
   public JavaMemoryClass(String name, long timeout) {
     super(URI.create(name), Kind.CLASS);
     this.timeout = timeout < 0 ? 0 : timeout;
@@ -51,4 +53,9 @@ public class JavaMemoryClass extends SimpleJavaFileObject  implements RuntimeJav
   private static URI createURI(String name) {
     return URI.create("mhithrha:///" + name.replace('.', '/') + Kind.CLASS.extension);
   }
+
+  public boolean inPackage(String packageName) {
+    return Strings.isNullOrEmpty(packageName) || getName().startsWith(packageName);
+  }
+
 }

@@ -27,11 +27,12 @@ import com.duanxr.mhithrha.component.JavaMemoryClass;
 import com.duanxr.mhithrha.component.RuntimeJavaFileObject;
 import com.duanxr.mhithrha.loader.RuntimeClassLoader;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
+import java.util.stream.Collectors;
 import javax.tools.FileObject;
 import javax.tools.JavaFileManager;
 import javax.tools.JavaFileObject;
@@ -43,6 +44,7 @@ import lombok.extern.slf4j.Slf4j;
 public class RuntimeJavaFileManager implements JavaFileManager {
 
   private final StandardJavaFileManager fileManager;
+  private final Map<String, JavaMemoryClass> compiledClasses = new LinkedHashMap<>();
   private final Map<String, JavaMemoryClass> outputClasses = new LinkedHashMap<>();
   private final Map<String, JavaFileClass> inputClasses = new LinkedHashMap<>();
   private final RuntimeClassLoader classLoader;
@@ -62,26 +64,25 @@ public class RuntimeJavaFileManager implements JavaFileManager {
     return fileManager.inferModuleName(location);
   }
 
+  public String inferBinaryName(Location location, JavaFileObject file) {
+    return fileManager.inferBinaryName(location, file);
+  }
+
   public ClassLoader getClassLoader(Location location) {
-    return fileManager.getClassLoader(location);
+    return location == SOURCE_PATH || location == CLASS_PATH ? classLoader
+        : fileManager.getClassLoader(location);
   }
 
   public synchronized Iterable<JavaFileObject> list(Location location, String packageName,
       Set<Kind> kinds, boolean recurse) throws IOException {
-    if (location == SOURCE_PATH) {
-      synchronized (outputClasses) {
-        return new ArrayList<>(outputClasses.values());
+    if ((location == SOURCE_PATH || location == CLASS_OUTPUT) && kinds.contains(Kind.CLASS)) {
+      synchronized (compiledClasses) {
+        return compiledClasses.values().stream()
+            .filter(javaMemoryClass -> javaMemoryClass.inPackage(packageName))
+            .collect(Collectors.toList());
       }
     }
     return fileManager.list(location, packageName, kinds, recurse);
-  }
-
-  public static <T> Iterable<T> iterable(Iterable<T> iterable) {
-    return iterable;
-  }
-
-  public String inferBinaryName(Location location, JavaFileObject file) {
-    return fileManager.inferBinaryName(location, file);
   }
 
   @Override
@@ -109,13 +110,13 @@ public class RuntimeJavaFileManager implements JavaFileManager {
   public JavaFileObject getJavaFileForInput(Location location, String className, Kind kind)
       throws IOException {
     if (location == CLASS_OUTPUT && kind == Kind.CLASS) {
-      synchronized (outputClasses) {
-        return outputClasses.get(className);
+      synchronized (compiledClasses) {
+        return compiledClasses.get(className);
       }
     }
     if (location == SOURCE_PATH && kind == Kind.CLASS) {
-      synchronized (outputClasses) {
-        return outputClasses.get(className);
+      synchronized (compiledClasses) {
+        return compiledClasses.get(className);
       }
     }
     return fileManager.getJavaFileForInput(location, className, kind);
@@ -125,13 +126,15 @@ public class RuntimeJavaFileManager implements JavaFileManager {
   public JavaFileObject getJavaFileForOutput(Location location, final String className, Kind kind,
       FileObject sibling) {
     if (location == CLASS_OUTPUT && kind == Kind.CLASS) {
-      synchronized (outputClasses) {
-        JavaMemoryClass javaMemoryClass = outputClasses.get(className);
+      synchronized (compiledClasses) {
+        JavaMemoryClass javaMemoryClass = compiledClasses.get(className);
         if (javaMemoryClass == null) {
           javaMemoryClass = new JavaMemoryClass(className, 3000);
-          outputClasses.put(className, javaMemoryClass);
+          compiledClasses.put(className, javaMemoryClass);
+          synchronized (outputClasses) {
+            outputClasses.put(className, javaMemoryClass);
+          }
         }
-        System.out.println(className);
         return javaMemoryClass;
       }
     }
@@ -164,12 +167,15 @@ public class RuntimeJavaFileManager implements JavaFileManager {
     return fileManager.isSupportedOption(option);
   }
 
-  public Map<String, JavaMemoryClass> getOutputClasses() {
-    LinkedHashMap<String, JavaMemoryClass> map;
+  public Map<String, JavaMemoryClass> getCompiledClasses() {
+    LinkedHashMap<String, JavaMemoryClass> map = new LinkedHashMap<>();
     synchronized (outputClasses) {
-      map = new LinkedHashMap<>(outputClasses);
+      for (Entry<String, JavaMemoryClass> entry : outputClasses.entrySet()) {
+        map.put(entry.getKey().replaceAll("/", "."), entry.getValue());
+      }
+      outputClasses.clear();
     }
-    map.values().forEach(JavaMemoryClass::getClassBytes);
+    //map.values().forEach(JavaMemoryClass::getClassBytes);
     return map;
   }
 

@@ -11,7 +11,7 @@ public class TestLauncher {
   @Test
   public void t1() {
     for (int i = 0; i < 100; i++) {
-      new JavaLevelTest(RuntimeCompiler.withEclipse()).testJava17();
+      new PackageTest(RuntimeCompiler.withEclipse()).testPackageClass();
     }
   }
 
@@ -33,9 +33,14 @@ public class TestLauncher {
     doTest(new JavaLevelTest(withJdk));
     doTest(new JavaLevelTest(withJavac));
 
-    doTest(new JavaLevelTest(withEclipse));
-    doTest(new JavaLevelTest(withJdk));
-    doTest(new JavaLevelTest(withJavac));
+    doTest(new PackageTest(withEclipse));
+    doTest(new PackageTest(withJdk));
+    doTest(new PackageTest(withJavac));
+  }
+
+  private void doTest(PackageTest packageTest) {
+    packageTest.testPackageClass();
+    packageTest.testPackageClassWithoutName();
   }
 
   private void doTest(ReferenceTest referenceTest) {
@@ -44,6 +49,7 @@ public class TestLauncher {
     referenceTest.testReferenceMaven();
     referenceTest.testReferenceCustom();
     referenceTest.testReferenceAnother();
+    referenceTest.testReferenceEachOther();
   }
 
   private void doTest(JavaLevelTest javaLevelTest) {

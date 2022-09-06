@@ -59,9 +59,7 @@ public class ReferenceTest {
         import java.io.InputStream;
         import java.nio.charset.StandardCharsets;
         import java.util.function.Function;
-                
         public class ReferenceTestClass2 implements Function<String, InputStream> {
-                
             @Override
             public InputStream apply(String str) {
               ReferenceTestClass2Inner1 inner1 = new ReferenceTestClass2Inner1();
@@ -71,21 +69,17 @@ public class ReferenceTest {
               return stream;
             }
             private class ReferenceTestClass2Inner1 implements Function<String, byte[]> {
-                
               @Override
               public byte[] apply(String str) {
                 return str.getBytes(StandardCharsets.UTF_8);
               }
             }
-                
             public static class ReferenceTestClass2Inner2 implements Function<byte[], InputStream> {
-                
               @Override
               public InputStream apply(byte[] bytes) {
                 return new ByteArrayInputStream(bytes);
               }
             }
-                
           }
         """;
     String className = "ReferenceTestClass2";
@@ -201,4 +195,63 @@ public class ReferenceTest {
 
   }
 
+
+  public void testReferenceEachOther() {
+    String code = """
+        import java.util.function.Function;
+          public class ReferenceTestClass7 implements Function<String, String> {
+               @Override
+               public String apply(String str) {
+                 ReferenceTestClass7Inner1 inner1 = new ReferenceTestClass7Inner1();
+                 ReferenceTestClass7Inner2 inner2 = new ReferenceTestClass7Inner2();
+                 return inner1.apply(str) + '|' + inner2.apply(str);
+               }
+               public String addPrefix(String str) {
+                 return "out:" + str;
+               }
+               public String addSuffix(String str) {
+                 return str + ":out";
+               }
+               public static class ReferenceTestClass7Inner1 implements Function<String, String> {
+                 @Override
+                 public String apply(String str) {
+                   ReferenceTestClass7 referenceTestClass7 = new ReferenceTestClass7();
+                   ReferenceTestClass7Inner2 inner2 = new ReferenceTestClass7Inner2();
+                   return addPrefix(referenceTestClass7.addPrefix(inner2.addPrefix(str)));
+                 }
+                 public String addPrefix(String str) {
+                   return "inner1:" + str;
+                 }
+                 public String addSuffix(String str) {
+                   return str + ":inner1";
+                 }
+               }
+               public static class ReferenceTestClass7Inner2 implements Function<String, String> {
+                 @Override
+                 public String apply(String str) {
+                   ReferenceTestClass7 referenceTestClass7 = new ReferenceTestClass7();
+                   ReferenceTestClass7Inner1 inner1 = new ReferenceTestClass7Inner1();
+                   return addSuffix(referenceTestClass7.addSuffix(inner1.addSuffix(str)));
+                 }
+                 public String addPrefix(String str) {
+                   return "inner2:" + str;
+                 }
+                 public String addSuffix(String str) {
+                   return str + ":inner2";
+                 }
+               }
+             }
+        """;
+    String className = "ReferenceTestClass7";
+    try {
+      Class<?> compiledClass = compiler.compile(className, code);
+      Assert.assertEquals(compiledClass.getSimpleName(), className);
+      Function<String, String> object = (Function<String, String>) compiledClass.getConstructor()
+          .newInstance();
+      Assert.assertEquals(object.apply(className), "inner1:out:inner2:ReferenceTestClass7|ReferenceTestClass7:inner1:out:inner2");
+    } catch (Exception e) {
+      e.printStackTrace();
+      fail();
+    }
+  }
 }
