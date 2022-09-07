@@ -1,6 +1,8 @@
 package com.duanxr.mhithrha.test;
 
 import com.duanxr.mhithrha.RuntimeCompiler;
+import com.duanxr.mhithrha.loader.StandaloneClassLoader;
+import lombok.SneakyThrows;
 import org.junit.Test;
 
 /**
@@ -9,7 +11,14 @@ import org.junit.Test;
 public class TestLauncher {
 
   @Test
+  @SneakyThrows
   public void test() {
+    ClassLoader classLoader = this.getClass().getClassLoader();
+    Class<?> aClass = classLoader.loadClass("com.duanxr.mhithrha.test.component.PackageClass");
+
+    ClassLoader classLoader1 = new StandaloneClassLoader(classLoader);
+    Class<?> aClass1 = classLoader1.loadClass("com.duanxr.mhithrha.test.component.PackageClass");
+
     RuntimeCompiler withEclipse = RuntimeCompiler.withEclipseCompiler();
     RuntimeCompiler withJdk = RuntimeCompiler.withJdkCompiler();//requires jdk
     RuntimeCompiler withJavac = RuntimeCompiler.withJavacCompiler();//requires jvm option: --add-opens=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED
@@ -34,7 +43,7 @@ public class TestLauncher {
   private void doTest(PackageTest packageTest) {
     packageTest.testPackageClass();
     packageTest.testPackageClassWithoutName();
-    packageTest.testPackageAccessClass();
+    //TODO packageTest.testPackageAccessClass();
   }
 
   private void doTest(ReferenceTest referenceTest) {

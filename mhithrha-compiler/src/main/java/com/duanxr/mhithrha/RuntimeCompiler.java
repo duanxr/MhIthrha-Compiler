@@ -14,6 +14,7 @@ import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import javax.tools.JavaCompiler;
 import javax.tools.JavaFileObject;
 import javax.tools.StandardJavaFileManager;
@@ -125,11 +126,13 @@ public class RuntimeCompiler {
     CompileDiagnosticListener diagnosticListener = new CompileDiagnosticListener();
     List<JavaFileObject> javaFileObjects = Collections.singletonList(
         new JavaMemoryCode(className, javaCode));
-    boolean compile = compilerCore.compile(javaFileObjects, writer, diagnosticListener, optionList);
-    if (!compile) {
+    Map<String, Class<?>> classMap = compilerCore.compile(javaFileObjects, writer,
+        diagnosticListener, optionList);
+    if (classMap==null) {
       throw new RuntimeCompilerException(diagnosticListener.getError());
     }
-    return compilerCore.load(className);
+    Class<?> clazz = classMap.get(className);
+    return clazz == null ? compilerCore.load(className) : clazz;
   }
 
   public Class<?> compile(String className, String javaCode, List<String> optionList) {
