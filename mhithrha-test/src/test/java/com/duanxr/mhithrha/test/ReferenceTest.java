@@ -177,14 +177,14 @@ public class ReferenceTest {
         public class ReferenceTestClass6 implements Function<String,String>{
             @Override
             public String apply(String str) {
-              return new ReferenceTestClass5().get(str);
+              return new ReferenceTestClass5().apply(str);
             }
           }
         """;
     String className1 = "ReferenceTestClass6";
     try {
-      Class<?> compiledClass = compiler.compile(className0, code0);
-      Assert.assertEquals(compiledClass.getSimpleName(), className0);
+      Class<?> compiledClass = compiler.compile(className1, code1);
+      Assert.assertEquals(compiledClass.getSimpleName(), className1);
       Function<String, String> object = (Function<String, String>) compiledClass.getConstructor()
           .newInstance();
       Assert.assertEquals(object.apply(className1), "custom:ReferenceTestClass6");

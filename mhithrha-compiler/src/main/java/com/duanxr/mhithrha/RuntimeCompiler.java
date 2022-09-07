@@ -6,6 +6,8 @@ import com.duanxr.mhithrha.component.CompilerCore;
 import com.duanxr.mhithrha.component.JavaCodeParser;
 import com.duanxr.mhithrha.component.ResourcesLoader;
 import com.duanxr.mhithrha.component.RuntimeJavaFileManager;
+import com.duanxr.mhithrha.loader.IntrusiveClassLoader;
+import com.duanxr.mhithrha.loader.RuntimeClassLoader;
 import com.duanxr.mhithrha.loader.StandaloneClassLoader;
 import com.duanxr.mhithrha.resource.JavaMemoryCode;
 import java.io.File;
@@ -43,13 +45,13 @@ public class RuntimeCompiler {
 
   private CompilerCore create(JavaCompiler javaCompiler, ClassLoader classLoader) {
     ResourcesLoader resourcesLoader = new ResourcesLoader();
-    StandaloneClassLoader standaloneClassLoader = new StandaloneClassLoader(classLoader);
+    RuntimeClassLoader runtimeClassLoader = new StandaloneClassLoader(classLoader);
     //todo if springboot
     StandardJavaFileManager standardFileManager =
         javaCompiler.getStandardFileManager(null, null, null);
     RuntimeJavaFileManager runtimeJavaFileManager =
-        new RuntimeJavaFileManager(standardFileManager, standaloneClassLoader, resourcesLoader);
-    return new CompilerCore(standaloneClassLoader, javaCompiler, runtimeJavaFileManager,
+        new RuntimeJavaFileManager(standardFileManager, runtimeClassLoader, resourcesLoader);
+    return new CompilerCore(runtimeClassLoader, javaCompiler, runtimeJavaFileManager,
         resourcesLoader);
   }
 
@@ -109,6 +111,7 @@ public class RuntimeCompiler {
     return compile(compilerCore, className, javaCode, writer, optionList);
   }
 
+  @SneakyThrows
   private Class<?> compile(CompilerCore compilerCore, String className, String javaCode,
       PrintWriter writer, List<String> optionList) {
     if (javaCode == null || javaCode.isEmpty()) {
@@ -124,7 +127,7 @@ public class RuntimeCompiler {
       optionList = DEFAULT_OPTIONS;
     }
     CompileDiagnosticListener diagnosticListener = new CompileDiagnosticListener();
-    List<JavaFileObject> javaFileObjects = Collections.singletonList(
+    List<JavaMemoryCode> javaFileObjects = Collections.singletonList(
         new JavaMemoryCode(className, javaCode));
     Map<String, Class<?>> classMap = compilerCore.compile(javaFileObjects, writer,
         diagnosticListener, optionList);

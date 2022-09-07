@@ -14,7 +14,6 @@ public class JavaFileArchive extends ArchiveFileObject  implements RuntimeJavaFi
   public JavaFileArchive(String name, File file) {
     super(file, name, StandardCharsets.UTF_8);
   }
-
   public JavaFileArchive(String name, File file, Charset charset) {
     super(file, name, charset);
   }

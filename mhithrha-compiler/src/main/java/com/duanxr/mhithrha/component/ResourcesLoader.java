@@ -95,6 +95,7 @@ public class ResourcesLoader {
     return null;
   }
 
+  //todo make sure thread safe!
   public void loadJavaFiles(File file, String normalizedPackageName,
       Set<Kind> kinds, boolean recurse, List<RuntimeJavaFileObject> collector) {
     if (isArchive(file)) {

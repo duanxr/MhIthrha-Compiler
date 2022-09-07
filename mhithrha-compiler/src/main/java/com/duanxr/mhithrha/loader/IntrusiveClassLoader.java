@@ -98,9 +98,10 @@ public final class IntrusiveClassLoader extends RuntimeClassLoader {
           unsafe.putBoolean(defineClassMethod, offset, true);
         } catch (NoSuchFieldException e) {
           defineClassMethod.setAccessible(true);
-        }
+        }        if(true)return null;
         return defineClassMethod;
       } catch (Exception e) {
+        e.printStackTrace();
         log.debug("UnsafeDefineClassHelper not support", e);
       }
       return null;

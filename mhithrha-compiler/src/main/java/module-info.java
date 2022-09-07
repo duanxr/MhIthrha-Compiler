@@ -12,4 +12,5 @@ module com.duanxr.mhithrha {
     requires jdk.unsupported;
     requires jdk.compiler;
     requires com.github.benmanes.caffeine;
+  requires java.management;
 }

@@ -1,7 +1,9 @@
 package com.duanxr.mhithrha.component;
 
+import com.duanxr.mhithrha.loader.RuntimeClassLoader;
 import com.duanxr.mhithrha.loader.StandaloneClassLoader;
 import com.duanxr.mhithrha.resource.JavaMemoryClass;
+import com.duanxr.mhithrha.resource.JavaMemoryCode;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -22,12 +24,12 @@ import lombok.SneakyThrows;
 @Getter
 public class CompilerCore {
 
-  private final StandaloneClassLoader classLoader;
+  private final RuntimeClassLoader classLoader;
   private final Map<String, Class<?>> classesCache;
   private final JavaCompiler compiler;
   private final RuntimeJavaFileManager fileManager;
 
-  public CompilerCore(StandaloneClassLoader classLoader, JavaCompiler compiler,
+  public CompilerCore(RuntimeClassLoader classLoader, JavaCompiler compiler,
       RuntimeJavaFileManager fileManager, ResourcesLoader resourcesLoader) {
     this.classLoader = classLoader;
     this.compiler = compiler;
@@ -51,9 +53,10 @@ public class CompilerCore {
     return clazz;
   }
 
-  public Map<String, Class<?>> compile(List<JavaFileObject> compilationUnits,
+  public Map<String, Class<?>> compile(List<JavaMemoryCode> compilationUnits,
       PrintWriter printWriter, DiagnosticListener<? super JavaFileObject> diagnosticListener,
       List<String> options) {
+    fileManager.addCompileCode(compilationUnits);
     Boolean success = compiler.getTask(printWriter, fileManager, diagnosticListener, options, null,
         compilationUnits).call();
     if (!success) {

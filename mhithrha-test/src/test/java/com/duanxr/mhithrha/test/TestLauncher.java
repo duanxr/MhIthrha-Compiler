@@ -1,7 +1,7 @@
 package com.duanxr.mhithrha.test;
 
 import com.duanxr.mhithrha.RuntimeCompiler;
-import com.duanxr.mhithrha.loader.StandaloneClassLoader;
+import com.google.common.base.Strings;
 import lombok.SneakyThrows;
 import org.junit.Test;
 
@@ -13,37 +13,30 @@ public class TestLauncher {
   @Test
   @SneakyThrows
   public void test() {
-    ClassLoader classLoader = this.getClass().getClassLoader();
-    Class<?> aClass = classLoader.loadClass("com.duanxr.mhithrha.test.component.PackageClass");
-
-    ClassLoader classLoader1 = new StandaloneClassLoader(classLoader);
-    Class<?> aClass1 = classLoader1.loadClass("com.duanxr.mhithrha.test.component.PackageClass");
-
     RuntimeCompiler withEclipse = RuntimeCompiler.withEclipseCompiler();
-    RuntimeCompiler withJdk = RuntimeCompiler.withJdkCompiler();//requires jdk
     RuntimeCompiler withJavac = RuntimeCompiler.withJavacCompiler();//requires jvm option: --add-opens=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED
+    RuntimeCompiler withJdk = RuntimeCompiler.withJdkCompiler();//requires jdk
+    withEclipse.addModule(this.getClass().getModule());
+    new ReferenceTest(withEclipse).testReferenceMaven();
+    if(true)return;
 
-    doTest(new SimpleTest(withEclipse));
-    doTest(new SimpleTest(withJdk));
-    doTest(new SimpleTest(withJavac));
+    doTest(withEclipse);
+    doTest(withJavac);
+    doTest(withJdk);
+  }
 
-    doTest(new ReferenceTest(withEclipse));
-    doTest(new ReferenceTest(withJdk));
-    doTest(new ReferenceTest(withJavac));
-
-    doTest(new JavaLevelTest(withEclipse));
-    doTest(new JavaLevelTest(withJdk));
-    doTest(new JavaLevelTest(withJavac));
-
-    doTest(new PackageTest(withEclipse));
-    doTest(new PackageTest(withJdk));
-    doTest(new PackageTest(withJavac));
+  private void doTest(RuntimeCompiler compiler) {
+    doTest(new SimpleTest(compiler));
+    doTest(new ReferenceTest(compiler));
+    doTest(new JavaLevelTest(compiler));
+    doTest(new PackageTest(compiler));
   }
 
   private void doTest(PackageTest packageTest) {
     packageTest.testPackageClass();
     packageTest.testPackageClassWithoutName();
-    //TODO packageTest.testPackageAccessClass();
+    //packageTest.testPackageAccessClassFromAnotherClassLoader();
+    packageTest.testPackageAccessClass();
   }
 
   private void doTest(ReferenceTest referenceTest) {

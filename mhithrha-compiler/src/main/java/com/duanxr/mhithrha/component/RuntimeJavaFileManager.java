@@ -23,10 +23,11 @@ import static javax.tools.StandardLocation.CLASS_PATH;
 import static javax.tools.StandardLocation.MODULE_PATH;
 import static javax.tools.StandardLocation.SOURCE_PATH;
 
-import com.duanxr.mhithrha.loader.StandaloneClassLoader;
+import com.duanxr.mhithrha.loader.IntrusiveClassLoader;
 import com.duanxr.mhithrha.resource.JavaArchive;
 import com.duanxr.mhithrha.resource.JavaFileClass;
 import com.duanxr.mhithrha.resource.JavaMemoryClass;
+import com.duanxr.mhithrha.resource.JavaMemoryCode;
 import com.duanxr.mhithrha.resource.JavaModuleLocation;
 import com.duanxr.mhithrha.resource.RuntimeJavaFileObject;
 import java.io.File;
@@ -43,7 +44,6 @@ import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 import javax.tools.FileObject;
 import javax.tools.JavaFileManager;
 import javax.tools.JavaFileObject;
@@ -55,54 +55,79 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class RuntimeJavaFileManager implements JavaFileManager {
 
-  private final StandaloneClassLoader classLoader;
+  private static final Set<Location> LOCATIONS = Set.of(SOURCE_PATH, CLASS_PATH, CLASS_OUTPUT,
+      MODULE_PATH);//todo
+  private final ClassLoader classLoader;
   private final Map<String, JavaMemoryClass> compiledClasses = new LinkedHashMap<>();
   private final Set<JavaArchive> extraArchives = new HashSet<>();
   private final Map<String, JavaFileClass> extraClasses = new LinkedHashMap<>();
   private final StandardJavaFileManager fileManager;
-
-  private final Map<String, JavaFileClass> inputClasses = new LinkedHashMap<>();
+  private final Map<String, JavaMemoryCode> compiledCodes = new LinkedHashMap<>();
   private final Set<JavaModuleLocation> moduleLocations = new LinkedHashSet<>();
   private final Map<String, JavaMemoryClass> outputClasses = new LinkedHashMap<>();
   private final ResourcesLoader resourcesLoader;
 
   public RuntimeJavaFileManager(StandardJavaFileManager fileManager,
-      StandaloneClassLoader classLoader, ResourcesLoader resourcesLoader) {
+      ClassLoader classLoader, ResourcesLoader resourcesLoader) {
     this.fileManager = fileManager;
     this.classLoader = classLoader;
     this.resourcesLoader = resourcesLoader;
   }
 
   public ClassLoader getClassLoader(Location location) {
-    return classLoader;
+    return classLoader instanceof IntrusiveClassLoader ? classLoader.getParent() : classLoader;
   }
 
+
+  @SuppressWarnings("unchecked")
   public synchronized Iterable<JavaFileObject> list(Location location, String packageName,
       Set<Kind> kinds, boolean recurse) throws IOException {
-    if ((location == SOURCE_PATH || location == CLASS_OUTPUT) && kinds.contains(Kind.CLASS)) {
-      synchronized (compiledClasses) {
-        return compiledClasses.values().stream()
-            .filter(javaMemoryClass -> javaMemoryClass.inPackage(packageName))
-            .collect(Collectors.toList());
-      }
+    if (!LOCATIONS.contains(location)) {
+      return fileManager.list(location, packageName, kinds, recurse);
     }
+    List<RuntimeJavaFileObject> list = Collections.synchronizedList(new ArrayList<>());
     if (location == MODULE_PATH) {
-      String normalizedPackageName = NameConvertor.normalize(packageName);
-      List<RuntimeJavaFileObject> list = new ArrayList<>();
-      List<File> files = new ArrayList<>(moduleLocations.size());
-      synchronized (moduleLocations) {
-        moduleLocations.stream().map(JavaModuleLocation::getFile).forEach(files::add);
+      String normalize = NameConvertor.normalize(packageName);
+      moduleLocations.parallelStream().map(JavaModuleLocation::getFile)
+          .forEach(file -> resourcesLoader.loadJavaFiles(
+              file, normalize, kinds, recurse, list));
+    } else if (location == CLASS_OUTPUT) {
+      compiledClasses.values().parallelStream()
+          .filter(javaMemoryClass -> javaMemoryClass.inPackage(packageName))
+          .forEach(list::add);
+    } else if (location == SOURCE_PATH) {
+      if (kinds.contains(Kind.CLASS)) {
+        compiledCodes.values().parallelStream()
+            .filter(javaMemoryCode -> javaMemoryCode.inPackage(packageName))
+            .forEach(list::add);
       }
-      for (File file : files) {
-        resourcesLoader.loadJavaFiles(file, normalizedPackageName, kinds, recurse, list);
+      if (kinds.contains(Kind.SOURCE)) {
+        String denormalize = NameConvertor.denormalize(packageName);
+        compiledCodes.values().parallelStream()
+            .filter(javaMemoryCode -> javaMemoryCode.inPackage(denormalize)).forEach(list::add);
       }
-      return new ArrayList<>(list);
+    } else if (location == CLASS_PATH) {
+      if (kinds.contains(Kind.CLASS)) {
+        String normalize = NameConvertor.normalize(packageName);
+        compiledClasses.values().parallelStream()
+            .filter(javaMemoryClass -> javaMemoryClass.inPackage(packageName))
+            .forEach(list::add);
+        extraArchives.parallelStream().map(JavaArchive::getFile)
+            .forEach(file -> resourcesLoader.loadJavaFiles(
+                file, normalize, kinds, recurse, list));
+        extraClasses.values().parallelStream()
+            .filter(javaMemoryClass -> javaMemoryClass.inPackage(packageName))
+            .forEach(list::add);
+      }
     }
-    return fileManager.list(location, packageName, kinds, recurse);
+    return (List<JavaFileObject>) (List<? extends JavaFileObject>) list;
   }
 
 
   public String inferBinaryName(Location location, JavaFileObject file) {
+    if (file instanceof RuntimeJavaFileObject runtimeJavaFileObject) {
+      return runtimeJavaFileObject.getName();
+    }
     return fileManager.inferBinaryName(location, file);
   }
 
@@ -116,39 +141,59 @@ public class RuntimeJavaFileManager implements JavaFileManager {
     return fileManager.handleOption(current, remaining);
   }
 
+
   @Override
   public boolean hasLocation(Location location) {
-    return location == SOURCE_PATH || location == CLASS_OUTPUT
-        || location == CLASS_PATH || location == MODULE_PATH ||
-        fileManager.hasLocation(location);
+    return LOCATIONS.contains(location) || fileManager.hasLocation(location);
   }
 
   @Override
   public JavaFileObject getJavaFileForInput(Location location, String className, Kind kind)
       throws IOException {
-    if (location == CLASS_OUTPUT && kind == Kind.CLASS) {
-      synchronized (compiledClasses) {
+    if (LOCATIONS.contains(location)) {
+      List<RuntimeJavaFileObject> list = Collections.synchronizedList(new ArrayList<>());
+      if (location == MODULE_PATH) {
+        return moduleLocations.parallelStream()
+            .map(JavaModuleLocation::getFile)
+            .map(file -> resourcesLoader.loadJavaFile(file, className, kind))
+            .filter(Objects::nonNull)
+            .findAny().orElse(null);
+      } else if (location == CLASS_OUTPUT && kind == Kind.CLASS) {
         return compiledClasses.get(className);
+      } else if (location == SOURCE_PATH) {
+        if (kind == Kind.SOURCE) {
+          return compiledCodes.get(NameConvertor.denormalize(className));
+        }
+        if (kind == Kind.CLASS) {
+          return compiledClasses.get(className);
+        }
+      } else if (location == CLASS_PATH) {
+        if (kind == Kind.CLASS) {
+          String normalize = NameConvertor.normalize(className);
+          Optional<JavaMemoryClass> memoryClass = compiledClasses.values().parallelStream()
+              .filter(javaMemoryClass -> javaMemoryClass.inPackage(className))
+              .findAny();
+          if (memoryClass.isPresent()) {
+            return memoryClass.get();
+          }
+          Optional<JavaFileClass> extraClass = extraClasses.values().parallelStream()
+              .filter(javaMemoryClass -> javaMemoryClass.inPackage(className))
+              .findAny();
+          if (extraClass.isPresent()) {
+            return extraClass.get();
+          }
+          Optional<RuntimeJavaFileObject> extraArchiveClass = extraArchives.parallelStream()
+              .map(JavaArchive::getFile)
+              .map(file -> resourcesLoader.loadJavaFile(file, normalize, kind)).findAny();
+          if (extraArchiveClass.isPresent()) {
+            return extraArchiveClass.get();
+          }
+        }
+
       }
     }
-    if (location == SOURCE_PATH && kind == Kind.CLASS) {
-      synchronized (compiledClasses) {
-        return compiledClasses.get(className);
-      }
-    }
-    if (location == MODULE_PATH) {
-      List<File> files = new ArrayList<>(moduleLocations.size());
-      synchronized (moduleLocations) {
-        moduleLocations.stream().map(JavaModuleLocation::getFile).forEach(files::add);
-      }
-      return files.stream()
-          .map(file -> resourcesLoader.loadJavaFile(file, className, kind))
-          .filter(Objects::nonNull)
-          .findAny()
-          .orElse(null);
-    }
-    return fileManager.getJavaFileForInput(location, className, kind);
-  }
+    return fileManager.getJavaFileForInput(location,className,kind);
+}
 
   @Override
   public JavaFileObject getJavaFileForOutput(Location location, final String className, Kind kind,
@@ -191,19 +236,26 @@ public class RuntimeJavaFileManager implements JavaFileManager {
   }
 
   public synchronized String inferModuleName(final Location location) throws IOException {
-    return location instanceof JavaModuleLocation javaModuleLocation ?
-        javaModuleLocation.getModuleName() : fileManager.inferModuleName(location);
+    if (location instanceof JavaModuleLocation javaModuleLocation) {
+      return javaModuleLocation.getModuleName();
+    }
+    return fileManager.inferModuleName(location);
   }
 
   public synchronized Iterable<Set<Location>> listLocationsForModules(final Location location)
       throws IOException {
-    return location == MODULE_PATH ? Collections.singletonList(
-        new HashSet<>(moduleLocations)) : fileManager.listLocationsForModules(location);
+    if (location == MODULE_PATH) {
+      return Collections.singletonList(new HashSet<>(moduleLocations));
+    }
+    return fileManager.listLocationsForModules(location);
   }
 
   @Override
   public boolean contains(Location location, FileObject fo) throws IOException {
-    return fo instanceof RuntimeJavaFileObject || fileManager.contains(location, fo);
+    if (fo instanceof RuntimeJavaFileObject) {
+      return true;
+    }
+    return fileManager.contains(location, fo);
   }
 
 
@@ -236,6 +288,14 @@ public class RuntimeJavaFileManager implements JavaFileManager {
     }
   }
 
+  public void addCompileCode(List<JavaMemoryCode> javaMemoryCodes) {
+    synchronized (compiledCodes) {
+      for (JavaMemoryCode javaMemoryCode : javaMemoryCodes) {
+        compiledCodes.put(javaMemoryCode.getName(), javaMemoryCode);
+      }
+    }
+  }
+
   @SneakyThrows
   public void addExtraJar(File file) {//todo use it!
     JavaArchive javaArchive = new JavaArchive(file);
@@ -250,4 +310,6 @@ public class RuntimeJavaFileManager implements JavaFileManager {
       extraClasses.put(javaFileClass.getName(), javaFileClass);
     }
   }
+
+
 }

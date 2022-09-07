@@ -1,6 +1,7 @@
 package com.duanxr.mhithrha.resource;
 
 import com.duanxr.mhithrha.component.CallbackByteArrayOutputStream;
+import com.duanxr.mhithrha.component.NameConvertor;
 import com.google.common.base.Strings;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
@@ -15,7 +16,7 @@ import lombok.SneakyThrows;
 public class JavaMemoryClass extends SimpleJavaFileObject implements RuntimeJavaFileObject {
   private volatile byte[] bytes;
   public JavaMemoryClass(String name, long timeout) {
-    super(URI.create(name), Kind.CLASS);
+    super(createURI(name), Kind.CLASS);
   }
   @Override
   public InputStream openInputStream() {
@@ -46,7 +47,7 @@ public class JavaMemoryClass extends SimpleJavaFileObject implements RuntimeJava
   }
 
   private static URI createURI(String name) {
-    return URI.create("string:///" + name.replace('.', '/') + Kind.CLASS.extension);
+    return URI.create("string:///" + NameConvertor.normalize(name) + Kind.CLASS.extension);
   }
 
   public boolean inPackage(String packageName) {
