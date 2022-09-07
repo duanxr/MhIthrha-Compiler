@@ -15,7 +15,7 @@ import org.junit.Assert;
 
 @AllArgsConstructor
 @SuppressWarnings("unchecked")
-public class PackageTest {
+public class ModuleTest {
   private RuntimeCompiler compiler;
 
   public void testPackageClass() {

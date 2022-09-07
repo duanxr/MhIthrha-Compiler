@@ -1,17 +1,13 @@
-package com.duanxr.mhithrha.exports;
+package com.duanxr.mhithrha;
 
 
-import com.duanxr.mhithrha.ClassPromise;
-import com.duanxr.mhithrha.core.CompilerCore;
-import com.duanxr.mhithrha.JavaClassParser;
-import com.duanxr.mhithrha.RuntimeCompilerException;
-import com.duanxr.mhithrha.RuntimeJavaFileManager;
 import com.duanxr.mhithrha.component.CompileDiagnosticListener;
 import com.duanxr.mhithrha.component.JavaMemoryCode;
+import com.duanxr.mhithrha.core.CompilerCore;
 import com.duanxr.mhithrha.loader.RuntimeClassLoader;
+import java.io.File;
 import java.io.PrintWriter;
 import java.lang.reflect.Method;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -28,16 +24,19 @@ import org.eclipse.jdt.internal.compiler.tool.EclipseCompiler;
  */
 @Slf4j
 public class RuntimeCompiler {
+
   private static final List<String> DEFAULT_OPTIONS = Arrays.asList("-g", "-nowarn");
   private static final PrintWriter DEFAULT_WRITER = new PrintWriter(System.err);
   protected final JavaCompiler javaCompiler;
   protected final ClassLoader classLoader;
   protected final CompilerCore compilerCore;
-  public RuntimeCompiler(JavaCompiler javaCompiler) {
+
+  private RuntimeCompiler(JavaCompiler javaCompiler) {
     this.javaCompiler = javaCompiler;
     this.classLoader = getClass().getClassLoader();
     this.compilerCore = create(javaCompiler, classLoader);
   }
+
   private CompilerCore create(JavaCompiler javaCompiler, ClassLoader classLoader) {
     RuntimeClassLoader runtimeClassLoader = new RuntimeClassLoader(classLoader);
     //todo if springboot
@@ -48,31 +47,39 @@ public class RuntimeCompiler {
     return new CompilerCore(runtimeClassLoader, javaCompiler, runtimeJavaFileManager);
   }
 
+  public void addModule(Module module) {
+    compilerCore.getFileManager().addModule(module);
+  }
+  public void addExtraJar(File file) {
+    compilerCore.getFileManager().addExtraJar(file);
+  }
+  public void addExtraClass(File file) {
+    compilerCore.getFileManager().addExtraClass(file);
+  }
+
   public RuntimeCompiler(JavaCompiler javaCompiler, ClassLoader classLoader) {
     this.javaCompiler = javaCompiler;
     this.classLoader = classLoader;
     this.compilerCore = create(javaCompiler, classLoader);
   }
 
-  public static RuntimeCompiler withEclipse() {
-    System.setProperty("jdt.compiler.useSingleThread","true");
+  public static RuntimeCompiler withEclipseCompiler() {
     return new RuntimeCompiler(new EclipseCompiler());
   }
 
-  public static RuntimeCompiler withEclipse(ClassLoader classLoader) {
-    System.setProperty("jdt.compiler.useSingleThread","true");
+  public static RuntimeCompiler withEclipseCompiler(ClassLoader classLoader) {
     return new RuntimeCompiler(new EclipseCompiler(), classLoader);
   }
 
-  public static RuntimeCompiler withJdk() {
+  public static RuntimeCompiler withJdkCompiler() {
     return new RuntimeCompiler(ToolProvider.getSystemJavaCompiler());
   }
 
-  public static RuntimeCompiler withJdk(ClassLoader classLoader) {
+  public static RuntimeCompiler withJdkCompiler(ClassLoader classLoader) {
     return new RuntimeCompiler(ToolProvider.getSystemJavaCompiler(), classLoader);
   }
 
-  public static RuntimeCompiler withJavac(ClassLoader classLoader) {
+  public static RuntimeCompiler withJavacCompiler(ClassLoader classLoader) {
     return new RuntimeCompiler(getJavacCompiler(), classLoader);
   }
 
@@ -83,7 +90,7 @@ public class RuntimeCompiler {
     return (JavaCompiler) create.invoke(null);
   }
 
-  public static RuntimeCompiler withJavac() {
+  public static RuntimeCompiler withJavacCompiler() {
     return new RuntimeCompiler(getJavacCompiler());
   }
 
@@ -147,51 +154,8 @@ public class RuntimeCompiler {
     return compile(compilerCore, null, javaCode, null, null);
   }
 
-  public CompileTask createTask() {
-    return createTask(getClass().getClassLoader());
-  }
-
-  public CompileTask createTask(ClassLoader classLoader) {
-    return new CompileTask(create(javaCompiler, classLoader));
-  }
-
   public ClassLoader getClassLoader() {
     return this.compilerCore.getClassLoader();
-  }
-
-  public static class CompileTask {
-
-    private final List<JavaFileObject> compilationUnits;
-    private final CompilerCore compilerCore;
-
-    public CompileTask(CompilerCore compilerCore) {
-      this.compilerCore = compilerCore;
-      this.compilationUnits = new ArrayList<>();
-    }
-
-    public ClassPromise compileJavaCode(String code) {
-      return compileJavaCode(JavaClassParser.getFullClassName(code), code);
-    }
-
-    public ClassPromise compileJavaCode(String name, String code) {
-      compilationUnits.add(new JavaMemoryCode(name, code));
-      return new ClassPromise(name, compilerCore::load);
-    }
-
-    public void compile(PrintWriter writer, List<String> optionList) {
-      if (writer == null) {
-        writer = DEFAULT_WRITER;
-      }
-      if (optionList == null || optionList.isEmpty()) {
-        optionList = DEFAULT_OPTIONS;
-      }
-      CompileDiagnosticListener diagnosticListener = new CompileDiagnosticListener();
-      boolean compile = compilerCore.compile(compilationUnits, writer, diagnosticListener,
-          optionList);
-      if (!compile) {
-        throw new RuntimeCompilerException(diagnosticListener.getError());
-      }
-    }
   }
 
 }

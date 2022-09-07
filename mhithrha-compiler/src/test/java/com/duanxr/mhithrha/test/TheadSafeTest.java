@@ -2,7 +2,7 @@ package com.duanxr.mhithrha.test;
 
 import static org.junit.Assert.fail;
 
-import com.duanxr.mhithrha.exports.RuntimeCompiler;
+import com.duanxr.mhithrha.RuntimeCompiler;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import lombok.AllArgsConstructor;

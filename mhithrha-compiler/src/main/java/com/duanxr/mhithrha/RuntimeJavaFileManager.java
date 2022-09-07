@@ -20,15 +20,23 @@ package com.duanxr.mhithrha;
 
 import static javax.tools.StandardLocation.CLASS_OUTPUT;
 import static javax.tools.StandardLocation.CLASS_PATH;
+import static javax.tools.StandardLocation.MODULE_PATH;
+import static javax.tools.StandardLocation.MODULE_SOURCE_PATH;
 import static javax.tools.StandardLocation.SOURCE_PATH;
 
 import com.duanxr.mhithrha.component.JavaFileClass;
+import com.duanxr.mhithrha.component.JavaJarFile;
 import com.duanxr.mhithrha.component.JavaMemoryClass;
+import com.duanxr.mhithrha.component.JavaModuleLocation;
 import com.duanxr.mhithrha.component.RuntimeJavaFileObject;
 import com.duanxr.mhithrha.loader.RuntimeClassLoader;
+import java.io.File;
 import java.io.IOException;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -44,6 +52,9 @@ import lombok.extern.slf4j.Slf4j;
 public class RuntimeJavaFileManager implements JavaFileManager {
 
   private final StandardJavaFileManager fileManager;
+  private final Set<JavaModuleLocation> moduleLocations = new LinkedHashSet<>();
+  private final Map<String, JavaJarFile> extraJars = new LinkedHashMap<>();
+  private final Map<String, JavaFileClass> extraClasses = new LinkedHashMap<>();
   private final Map<String, JavaMemoryClass> compiledClasses = new LinkedHashMap<>();
   private final Map<String, JavaMemoryClass> outputClasses = new LinkedHashMap<>();
   private final Map<String, JavaFileClass> inputClasses = new LinkedHashMap<>();
@@ -57,11 +68,13 @@ public class RuntimeJavaFileManager implements JavaFileManager {
 
   public synchronized Iterable<Set<Location>> listLocationsForModules(final Location location)
       throws IOException {
-    return fileManager.listLocationsForModules(location);
+    return location == MODULE_PATH ? Collections.singletonList(new HashSet<>(moduleLocations))
+        : fileManager.listLocationsForModules(location);
   }
 
   public synchronized String inferModuleName(final Location location) throws IOException {
-    return fileManager.inferModuleName(location);
+    return location instanceof JavaModuleLocation javaModuleLocation ?
+        javaModuleLocation.getModuleName() : fileManager.inferModuleName(location);
   }
 
   public String inferBinaryName(Location location, JavaFileObject file) {
@@ -82,6 +95,9 @@ public class RuntimeJavaFileManager implements JavaFileManager {
             .collect(Collectors.toList());
       }
     }
+    if (location == MODULE_PATH) {
+      return Collections.emptyList();
+    }
     return fileManager.list(location, packageName, kinds, recurse);
   }
 
@@ -98,7 +114,8 @@ public class RuntimeJavaFileManager implements JavaFileManager {
   @Override
   public boolean hasLocation(Location location) {
     return location == SOURCE_PATH || location == CLASS_OUTPUT
-        || location == CLASS_PATH || fileManager.hasLocation(location);
+        || location == CLASS_PATH || location == MODULE_PATH ||
+        fileManager.hasLocation(location);
   }
 
   @Override
@@ -118,6 +135,9 @@ public class RuntimeJavaFileManager implements JavaFileManager {
       synchronized (compiledClasses) {
         return compiledClasses.get(className);
       }
+    }
+    if (location == MODULE_PATH || location == MODULE_SOURCE_PATH) {
+      return null;
     }
     return fileManager.getJavaFileForInput(location, className, kind);
   }
@@ -175,8 +195,26 @@ public class RuntimeJavaFileManager implements JavaFileManager {
       }
       outputClasses.clear();
     }
-    //map.values().forEach(JavaMemoryClass::getClassBytes);
     return map;
   }
 
+  public void addModule(Module module) {
+    synchronized (moduleLocations) {
+      moduleLocations.add(new JavaModuleLocation(module));
+    }
+  }
+
+  public void addExtraJar(File file) {//todo use it!
+    JavaJarFile javaJarFile = new JavaJarFile(file.getAbsolutePath(), file);
+    synchronized (extraJars) {
+      extraJars.put(javaJarFile.getName(), javaJarFile);
+    }
+  }
+
+  public void addExtraClass(File file) {//todo use it!
+    JavaFileClass javaFileClass = new JavaFileClass(file.getAbsolutePath(), file);
+    synchronized (extraClasses) {
+      extraClasses.put(javaFileClass.getName(), javaFileClass);
+    }
+  }
 }
