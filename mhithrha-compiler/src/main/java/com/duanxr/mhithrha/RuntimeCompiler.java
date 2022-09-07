@@ -2,7 +2,9 @@ package com.duanxr.mhithrha;
 
 
 import com.duanxr.mhithrha.component.CompileDiagnosticListener;
+import com.duanxr.mhithrha.component.JavaClassParser;
 import com.duanxr.mhithrha.component.JavaMemoryCode;
+import com.duanxr.mhithrha.component.RuntimeJavaFileManager;
 import com.duanxr.mhithrha.core.CompilerCore;
 import com.duanxr.mhithrha.loader.RuntimeClassLoader;
 import java.io.File;

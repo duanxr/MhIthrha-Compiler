@@ -1,4 +1,4 @@
-package com.duanxr.mhithrha;
+package com.duanxr.mhithrha.component;
 
 import java.io.File;
 import java.net.URI;

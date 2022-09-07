@@ -1,4 +1,6 @@
-package com.duanxr.mhithrha;
+package com.duanxr.mhithrha.component;
+
+import com.duanxr.mhithrha.RuntimeCompilerException;
 
 /**
  * @author 段然 2022/9/5

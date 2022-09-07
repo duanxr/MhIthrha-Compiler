@@ -1,6 +1,6 @@
 package com.duanxr.mhithrha.core;
 
-import com.duanxr.mhithrha.RuntimeJavaFileManager;
+import com.duanxr.mhithrha.component.RuntimeJavaFileManager;
 import com.duanxr.mhithrha.component.JavaMemoryClass;
 import com.duanxr.mhithrha.loader.RuntimeClassLoader;
 import java.io.PrintWriter;

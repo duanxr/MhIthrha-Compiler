@@ -8,40 +8,36 @@ import lombok.Getter;
 import lombok.SneakyThrows;
 
 /**
- * @author 段然 2022/9/5
+ * @author 段然 2022/9/7
  */
-public class RuntimeClassLoader extends ClassLoader {
-
-  private final Map<String, byte[]> defineCache = new HashMap<>();
-
+public sealed abstract class RuntimeClassLoader extends ClassLoader permits
+    StandaloneClassLoader, IntrusiveClassLoader {
+  private final Map<String, byte[]> defineTaskMap = new HashMap<>();
   public RuntimeClassLoader(ClassLoader parent) {
     super(parent);
   }
-
   public RuntimeClassLoader() {
     super();
   }
-
-  public Class<?> defineReloadableClass(String name, byte[] bytes) {
-    return new ReloadableClassLoader(this).defineClass(name, bytes);
-  }
-
   public Map<String, Class<?>> defineClasses(Map<String, byte[]> classBytes) {
     Map<String, Class<?>> classes = new HashMap<>(classBytes.size());
     List<DefineTask> tasks = classBytes.entrySet().stream().map(DefineTask::new).toList();
-    synchronized (defineCache) {
-      defineCache.putAll(classBytes);
+    synchronized (defineTaskMap) {
+      defineTaskMap.putAll(classBytes);
       classes.putAll(
-          tasks.stream().collect(Collectors.toMap(DefineTask::getName, DefineTask::define)));
-      classBytes.keySet().forEach(defineCache::remove);
+          tasks.stream()
+              .collect(Collectors.toMap(DefineTask::getName, DefineTask::define)));
+      classBytes.keySet().forEach(defineTaskMap::remove);
     }
     return classes;
   }
-
+  public Class<?> defineIsolatedClass(String name, byte[] bytes) {
+    return new IsolatedClassLoader(this).defineClass(name, bytes);
+  }
   @Override
   protected Class<?> findClass(String name) throws ClassNotFoundException {
-    synchronized (defineCache) {
-      byte[] bytes = defineCache.remove(name);
+    synchronized (defineTaskMap) {
+      byte[] bytes = defineTaskMap.remove(name);
       if (bytes != null) {
         return defineClass(name, bytes);
       }
@@ -49,12 +45,9 @@ public class RuntimeClassLoader extends ClassLoader {
     return loadClass(name);
   }
 
-  public Class<?> defineClass(String name, byte[] bytes) {
-    return defineClass(name, bytes, 0, bytes.length);
-  }
+  public abstract Class<?> defineClass(String name, byte[] bytes);
 
   private class DefineTask {
-
     private final byte[] bytes;
     @Getter
     private final String name;
@@ -71,8 +64,8 @@ public class RuntimeClassLoader extends ClassLoader {
 
     @SneakyThrows
     public Class<?> define() {
-      synchronized (defineCache) {
-        return defineCache.containsKey(name) ? defineClass(name, bytes) : findClass(name);
+      synchronized (defineTaskMap) {
+        return defineTaskMap.containsKey(name) ? defineClass(name, bytes) : findClass(name);
       }
     }
   }
