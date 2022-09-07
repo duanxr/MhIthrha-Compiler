@@ -10,9 +10,17 @@
   <version>1.0.0</version>
   <modules>
     <module>mhithrha-compiler</module>
+    <module>mhithrha-test</module>
+    <module>mhithrha-module-test</module>
+    <module>mhithrha-springboot-test</module>
   </modules>
   <dependencyManagement>
     <dependencies>
+      <dependency>
+        <groupId>org.jetbrains</groupId>
+        <artifactId>annotations</artifactId>
+        <version>23.0.0</version>
+      </dependency>
       <dependency>
         <groupId>org.jetbrains</groupId>
         <artifactId>annotations</artifactId>
@@ -39,6 +47,12 @@
         <version>4.4</version>
       </dependency>
       <dependency>
+        <groupId>com.github.ben-manes.caffeine</groupId>
+        <artifactId>caffeine</artifactId>
+        <version>3.1.1</version>
+      </dependency>
+
+      <dependency>
         <groupId>com.github.javaparser</groupId>
         <artifactId>javaparser-symbol-solver-core</artifactId>
         <version>3.24.4</version>
@@ -62,6 +76,11 @@
         <groupId>org.easymock</groupId>
         <artifactId>easymock</artifactId>
         <version>3.2</version>
+      </dependency>
+      <dependency>
+        <groupId>com.duanxr</groupId>
+        <artifactId>mhithrha-compiler</artifactId>
+        <version>${project.version}</version>
       </dependency>
     </dependencies>
   </dependencyManagement>

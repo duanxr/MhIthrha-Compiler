@@ -1,4 +1,4 @@
-package com.duanxr.mhithrha.component;
+package com.duanxr.mhithrha.resource;
 
 import javax.tools.JavaFileObject;
 

@@ -5,11 +5,11 @@ import com.duanxr.mhithrha.RuntimeCompilerException;
 /**
  * @author 段然 2022/9/5
  */
-public class JavaClassParser {
+public class JavaCodeParser {
 
   public static String getFullClassName(String javaCode) {
     String className = getFullClassNameSimple(javaCode);
-    //Addmore
+    //TODO Add more
     return className;
   }
 

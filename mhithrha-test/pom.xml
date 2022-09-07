@@ -8,7 +8,7 @@
     <version>1.0.0</version>
   </parent>
   <modelVersion>4.0.0</modelVersion>
-  <artifactId>mhithrha-compiler</artifactId>
+  <artifactId>mhithrha-test</artifactId>
   <packaging>jar</packaging>
   <name>Mh'Ithrha-Compiler</name>
   <version>1.0.0</version>
@@ -27,37 +27,24 @@
   </build>
   <dependencies>
     <dependency>
-      <groupId>com.github.ben-manes.caffeine</groupId>
-      <artifactId>caffeine</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>com.github.javaparser</groupId>
-      <artifactId>javaparser-symbol-solver-core</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.commons</groupId>
-      <artifactId>commons-collections4</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>org.eclipse.jdt</groupId>
-      <artifactId>ecj</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>org.jetbrains</groupId>
-      <artifactId>annotations</artifactId>
-    </dependency>
-    <dependency>
       <groupId>org.projectlombok</groupId>
       <artifactId>lombok</artifactId>
       <scope>provided</scope>
     </dependency>
     <dependency>
-      <groupId>org.slf4j</groupId>
-      <artifactId>slf4j-api</artifactId>
+      <groupId>com.duanxr</groupId>
+      <artifactId>mhithrha-compiler</artifactId>
+      <scope>test</scope>
     </dependency>
     <dependency>
-      <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-loader</artifactId>
+      <groupId>junit</groupId>
+      <artifactId>junit</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.easymock</groupId>
+      <artifactId>easymock</artifactId>
+      <scope>test</scope>
     </dependency>
   </dependencies>
 </project>

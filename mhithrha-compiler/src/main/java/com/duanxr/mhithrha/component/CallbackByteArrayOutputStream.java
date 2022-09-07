@@ -26,7 +26,6 @@ public class CallbackByteArrayOutputStream extends ByteArrayOutputStream {
   public CallbackByteArrayOutputStream(Consumer<CallbackByteArrayOutputStream> callback) {
     this.callback = callback;
   }
-
   @Override
   public void close() {
     if (callback != null) {

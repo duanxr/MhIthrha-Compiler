@@ -1,4 +1,4 @@
-package com.duanxr.mhithrha.component;
+package com.duanxr.mhithrha.resource;
 
 import java.net.URI;
 import javax.tools.SimpleJavaFileObject;
@@ -6,7 +6,7 @@ import javax.tools.SimpleJavaFileObject;
 /**
  * @author 段然 2022/9/5
  */
-public class JavaMemoryCode extends SimpleJavaFileObject implements RuntimeJavaFileObject{
+public class JavaMemoryCode extends SimpleJavaFileObject implements RuntimeJavaFileObject {
 
   private final String code;
 
@@ -21,7 +21,7 @@ public class JavaMemoryCode extends SimpleJavaFileObject implements RuntimeJavaF
   }
 
   private static URI createURI(String name) {
-    return URI.create("mhithrha:///" + name.replace('.', '/') + Kind.SOURCE.extension);
+    return URI.create("string:///" + name.replace('.', '/') + Kind.SOURCE.extension);
   }
 
 

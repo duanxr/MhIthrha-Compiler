@@ -9,24 +9,10 @@ import org.junit.Test;
 public class TestLauncher {
 
   @Test
-  public void t1() {
-    for (int i = 0; i < 100; i++) {
-      new PackageTest(RuntimeCompiler.withEclipseCompiler()).testPackageClass();
-    }
-  }
-
-  @Test
   public void test() {
-    Module module = this.getClass().getModule();
     RuntimeCompiler withEclipse = RuntimeCompiler.withEclipseCompiler();
-    RuntimeCompiler withJdk = RuntimeCompiler.withJdkCompiler();//need jdk
-    RuntimeCompiler withJavac = RuntimeCompiler.withJavacCompiler();//need jvm option: --add-opens=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED
-
-    withEclipse.addModule(module);
-    withJdk.addModule(module);
-    withJavac.addModule(module);
-
-    new ReferenceTest(withEclipse).testReferenceMaven();
+    RuntimeCompiler withJdk = RuntimeCompiler.withJdkCompiler();//requires jdk
+    RuntimeCompiler withJavac = RuntimeCompiler.withJavacCompiler();//requires jvm option: --add-opens=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED
 
     doTest(new SimpleTest(withEclipse));
     doTest(new SimpleTest(withJdk));

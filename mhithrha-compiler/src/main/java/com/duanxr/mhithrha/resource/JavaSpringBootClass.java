@@ -1,4 +1,4 @@
-package com.duanxr.mhithrha.component;
+package com.duanxr.mhithrha.resource;
 
 /**
  * @author 段然 2022/9/5

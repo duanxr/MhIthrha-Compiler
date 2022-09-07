@@ -1,8 +1,7 @@
-package com.duanxr.mhithrha.core;
+package com.duanxr.mhithrha.component;
 
-import com.duanxr.mhithrha.component.RuntimeJavaFileManager;
-import com.duanxr.mhithrha.component.JavaMemoryClass;
-import com.duanxr.mhithrha.loader.RuntimeClassLoader;
+import com.duanxr.mhithrha.resource.JavaMemoryClass;
+import com.duanxr.mhithrha.loader.StandaloneClassLoader;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -22,14 +21,12 @@ import lombok.SneakyThrows;
  */
 @Getter
 public class CompilerCore {
-
-  private final RuntimeClassLoader classLoader;
+  private final StandaloneClassLoader classLoader;
   private final Map<String, Class<?>> classesCache;
   private final JavaCompiler compiler;
   private final RuntimeJavaFileManager fileManager;
-
-  public CompilerCore(RuntimeClassLoader classLoader, JavaCompiler compiler,
-      RuntimeJavaFileManager fileManager) {
+  public CompilerCore(StandaloneClassLoader classLoader, JavaCompiler compiler,
+      RuntimeJavaFileManager fileManager, ResourcesLoader resourcesLoader) {
     this.classLoader = classLoader;
     this.compiler = compiler;
     this.fileManager = fileManager;

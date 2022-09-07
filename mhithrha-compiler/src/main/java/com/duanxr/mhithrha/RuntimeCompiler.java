@@ -2,11 +2,12 @@ package com.duanxr.mhithrha;
 
 
 import com.duanxr.mhithrha.component.CompileDiagnosticListener;
-import com.duanxr.mhithrha.component.JavaClassParser;
-import com.duanxr.mhithrha.component.JavaMemoryCode;
+import com.duanxr.mhithrha.component.CompilerCore;
+import com.duanxr.mhithrha.component.JavaCodeParser;
+import com.duanxr.mhithrha.component.ResourcesLoader;
 import com.duanxr.mhithrha.component.RuntimeJavaFileManager;
-import com.duanxr.mhithrha.core.CompilerCore;
-import com.duanxr.mhithrha.loader.RuntimeClassLoader;
+import com.duanxr.mhithrha.loader.StandaloneClassLoader;
+import com.duanxr.mhithrha.resource.JavaMemoryCode;
 import java.io.File;
 import java.io.PrintWriter;
 import java.lang.reflect.Method;
@@ -29,39 +30,32 @@ public class RuntimeCompiler {
 
   private static final List<String> DEFAULT_OPTIONS = Arrays.asList("-g", "-nowarn");
   private static final PrintWriter DEFAULT_WRITER = new PrintWriter(System.err);
-  protected final JavaCompiler javaCompiler;
-  protected final ClassLoader classLoader;
-  protected final CompilerCore compilerCore;
-
-  private RuntimeCompiler(JavaCompiler javaCompiler) {
-    this.javaCompiler = javaCompiler;
-    this.classLoader = getClass().getClassLoader();
-    this.compilerCore = create(javaCompiler, classLoader);
-  }
-
-  private CompilerCore create(JavaCompiler javaCompiler, ClassLoader classLoader) {
-    RuntimeClassLoader runtimeClassLoader = new RuntimeClassLoader(classLoader);
-    //todo if springboot
-    StandardJavaFileManager standardFileManager =
-        javaCompiler.getStandardFileManager(null, null, null);
-    RuntimeJavaFileManager runtimeJavaFileManager =
-        new RuntimeJavaFileManager(standardFileManager, runtimeClassLoader);
-    return new CompilerCore(runtimeClassLoader, javaCompiler, runtimeJavaFileManager);
-  }
-
-  public void addModule(Module module) {
-    compilerCore.getFileManager().addModule(module);
-  }
-  public void addExtraJar(File file) {
-    compilerCore.getFileManager().addExtraJar(file);
-  }
-  public void addExtraClass(File file) {
-    compilerCore.getFileManager().addExtraClass(file);
-  }
+  private final ClassLoader classLoader;
+  private final CompilerCore compilerCore;
+  private final JavaCompiler javaCompiler;
 
   public RuntimeCompiler(JavaCompiler javaCompiler, ClassLoader classLoader) {
     this.javaCompiler = javaCompiler;
     this.classLoader = classLoader;
+    this.compilerCore = create(javaCompiler, classLoader);
+  }
+
+  private CompilerCore create(JavaCompiler javaCompiler, ClassLoader classLoader) {
+    ResourcesLoader resourcesLoader = new ResourcesLoader();
+    StandaloneClassLoader standaloneClassLoader = new StandaloneClassLoader(classLoader);
+    //todo if springboot
+    StandardJavaFileManager standardFileManager =
+        javaCompiler.getStandardFileManager(null, null, null);
+    RuntimeJavaFileManager runtimeJavaFileManager =
+        new RuntimeJavaFileManager(standardFileManager, standaloneClassLoader, resourcesLoader);
+    return new CompilerCore(standaloneClassLoader, javaCompiler, runtimeJavaFileManager,
+        resourcesLoader);
+  }
+
+
+  public RuntimeCompiler(JavaCompiler javaCompiler) {
+    this.javaCompiler = javaCompiler;
+    this.classLoader = this.getClass().getClassLoader();
     this.compilerCore = create(javaCompiler, classLoader);
   }
 
@@ -86,6 +80,7 @@ public class RuntimeCompiler {
   }
 
   @SneakyThrows
+  @SuppressWarnings("")
   private static JavaCompiler getJavacCompiler() {
     Class<?> javacTool = Class.forName("com.sun.tools.javac.api.JavacTool");
     Method create = javacTool.getMethod("create");
@@ -96,18 +91,30 @@ public class RuntimeCompiler {
     return new RuntimeCompiler(getJavacCompiler());
   }
 
+  public void addModule(Module module) {
+    compilerCore.getFileManager().addModule(module);
+  }
+
+  public void addExtraJar(File file) {
+    compilerCore.getFileManager().addExtraJar(file);
+  }
+
+  public void addExtraClass(File file) {
+    compilerCore.getFileManager().addExtraClass(file);
+  }
+
   public Class<?> compile(String className, String javaCode, PrintWriter writer,
-      List<String> optionList) throws ClassNotFoundException {
+      List<String> optionList) {
     return compile(compilerCore, className, javaCode, writer, optionList);
   }
 
   private Class<?> compile(CompilerCore compilerCore, String className, String javaCode,
-      PrintWriter writer, List<String> optionList) throws ClassNotFoundException {
+      PrintWriter writer, List<String> optionList) {
     if (javaCode == null || javaCode.isEmpty()) {
       throw new IllegalArgumentException("javaCode is empty");
     }
     if (className == null || className.isEmpty()) {
-      className = JavaClassParser.getFullClassName(javaCode);
+      className = JavaCodeParser.getFullClassName(javaCode);
     }
     if (writer == null) {
       writer = DEFAULT_WRITER;
@@ -125,34 +132,31 @@ public class RuntimeCompiler {
     return compilerCore.load(className);
   }
 
-  public Class<?> compile(String className, String javaCode, List<String> optionList)
-      throws ClassNotFoundException {
+  public Class<?> compile(String className, String javaCode, List<String> optionList) {
     return compile(compilerCore, className, javaCode, null, optionList);
   }
 
-  public Class<?> compile(String className, String javaCode, PrintWriter writer)
-      throws ClassNotFoundException {
+  public Class<?> compile(String className, String javaCode, PrintWriter writer) {
     return compile(compilerCore, className, javaCode, writer, null);
   }
 
-  public Class<?> compile(String javaCode, PrintWriter writer) throws ClassNotFoundException {
+  public Class<?> compile(String javaCode, PrintWriter writer) {
     return compile(compilerCore, null, javaCode, writer, null);
   }
 
-  public Class<?> compile(String className, String javaCode) throws ClassNotFoundException {
+  public Class<?> compile(String className, String javaCode) {
     return compile(compilerCore, className, javaCode, null, null);
   }
 
-  public Class<?> compile(String javaCode, PrintWriter writer, List<String> optionList)
-      throws ClassNotFoundException {
+  public Class<?> compile(String javaCode, PrintWriter writer, List<String> optionList) {
     return compile(compilerCore, null, javaCode, writer, optionList);
   }
 
-  public Class<?> compile(String javaCode, List<String> optionList) throws ClassNotFoundException {
+  public Class<?> compile(String javaCode, List<String> optionList) {
     return compile(compilerCore, null, javaCode, null, optionList);
   }
 
-  public Class<?> compile(String javaCode) throws ClassNotFoundException {
+  public Class<?> compile(String javaCode) {
     return compile(compilerCore, null, javaCode, null, null);
   }
 

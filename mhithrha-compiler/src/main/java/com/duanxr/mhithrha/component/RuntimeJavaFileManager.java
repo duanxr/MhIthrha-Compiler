@@ -21,24 +21,27 @@ package com.duanxr.mhithrha.component;
 import static javax.tools.StandardLocation.CLASS_OUTPUT;
 import static javax.tools.StandardLocation.CLASS_PATH;
 import static javax.tools.StandardLocation.MODULE_PATH;
-import static javax.tools.StandardLocation.MODULE_SOURCE_PATH;
 import static javax.tools.StandardLocation.SOURCE_PATH;
 
-import com.duanxr.mhithrha.component.JavaFileClass;
-import com.duanxr.mhithrha.component.JavaJarFile;
-import com.duanxr.mhithrha.component.JavaMemoryClass;
-import com.duanxr.mhithrha.component.JavaModuleLocation;
-import com.duanxr.mhithrha.component.RuntimeJavaFileObject;
-import com.duanxr.mhithrha.loader.RuntimeClassLoader;
+import com.duanxr.mhithrha.loader.StandaloneClassLoader;
+import com.duanxr.mhithrha.resource.JavaArchive;
+import com.duanxr.mhithrha.resource.JavaFileClass;
+import com.duanxr.mhithrha.resource.JavaMemoryClass;
+import com.duanxr.mhithrha.resource.JavaModuleLocation;
+import com.duanxr.mhithrha.resource.RuntimeJavaFileObject;
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.tools.FileObject;
@@ -46,25 +49,28 @@ import javax.tools.JavaFileManager;
 import javax.tools.JavaFileObject;
 import javax.tools.JavaFileObject.Kind;
 import javax.tools.StandardJavaFileManager;
+import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class RuntimeJavaFileManager implements JavaFileManager {
 
-  private final RuntimeClassLoader classLoader;
+  private final StandaloneClassLoader classLoader;
   private final Map<String, JavaMemoryClass> compiledClasses = new LinkedHashMap<>();
+  private final Set<JavaArchive> extraArchives = new HashSet<>();
   private final Map<String, JavaFileClass> extraClasses = new LinkedHashMap<>();
-  private final Map<String, JavaJarFile> extraJars = new LinkedHashMap<>();
   private final StandardJavaFileManager fileManager;
 
   private final Map<String, JavaFileClass> inputClasses = new LinkedHashMap<>();
   private final Set<JavaModuleLocation> moduleLocations = new LinkedHashSet<>();
   private final Map<String, JavaMemoryClass> outputClasses = new LinkedHashMap<>();
+  private final ResourcesLoader resourcesLoader;
 
   public RuntimeJavaFileManager(StandardJavaFileManager fileManager,
-      RuntimeClassLoader classLoader) {
+      StandaloneClassLoader classLoader, ResourcesLoader resourcesLoader) {
     this.fileManager = fileManager;
     this.classLoader = classLoader;
+    this.resourcesLoader = resourcesLoader;
   }
 
   public ClassLoader getClassLoader(Location location) {
@@ -80,16 +86,24 @@ public class RuntimeJavaFileManager implements JavaFileManager {
             .collect(Collectors.toList());
       }
     }
-    if (location == MODULE_PATH || location == MODULE_SOURCE_PATH ) {
-      //return Collections.emptyList();
+    if (location == MODULE_PATH) {
+      String normalizedPackageName = NameConvertor.normalize(packageName);
+      List<RuntimeJavaFileObject> list = new ArrayList<>();
+      List<File> files = new ArrayList<>(moduleLocations.size());
+      synchronized (moduleLocations) {
+        moduleLocations.stream().map(JavaModuleLocation::getFile).forEach(files::add);
+      }
+      for (File file : files) {
+        resourcesLoader.loadJavaFiles(file, normalizedPackageName, kinds, recurse, list);
+      }
+      return new ArrayList<>(list);
     }
     return fileManager.list(location, packageName, kinds, recurse);
   }
 
+
   public String inferBinaryName(Location location, JavaFileObject file) {
-    String binaryName = fileManager.inferBinaryName(location, file);
-    System.out.println("inferBinaryName:" + binaryName);
-    return binaryName;
+    return fileManager.inferBinaryName(location, file);
   }
 
   @Override
@@ -105,8 +119,7 @@ public class RuntimeJavaFileManager implements JavaFileManager {
   @Override
   public boolean hasLocation(Location location) {
     return location == SOURCE_PATH || location == CLASS_OUTPUT
-        || location == CLASS_PATH ||
-        //location == MODULE_PATH || location == MODULE_SOURCE_PATH ||
+        || location == CLASS_PATH || location == MODULE_PATH ||
         fileManager.hasLocation(location);
   }
 
@@ -123,8 +136,16 @@ public class RuntimeJavaFileManager implements JavaFileManager {
         return compiledClasses.get(className);
       }
     }
-    if (location == MODULE_PATH || location == MODULE_SOURCE_PATH) {
-      return null;
+    if (location == MODULE_PATH) {
+      List<File> files = new ArrayList<>(moduleLocations.size());
+      synchronized (moduleLocations) {
+        moduleLocations.stream().map(JavaModuleLocation::getFile).forEach(files::add);
+      }
+      return files.stream()
+          .map(file -> resourcesLoader.loadJavaFile(file, className, kind))
+          .filter(Objects::nonNull)
+          .findAny()
+          .orElse(null);
     }
     return fileManager.getJavaFileForInput(location, className, kind);
   }
@@ -170,24 +191,21 @@ public class RuntimeJavaFileManager implements JavaFileManager {
   }
 
   public synchronized String inferModuleName(final Location location) throws IOException {
-    String moduleName = location instanceof JavaModuleLocation javaModuleLocation ?
+    return location instanceof JavaModuleLocation javaModuleLocation ?
         javaModuleLocation.getModuleName() : fileManager.inferModuleName(location);
-    System.out.println("inferModuleName:" + moduleName);
-    return moduleName;
   }
 
   public synchronized Iterable<Set<Location>> listLocationsForModules(final Location location)
       throws IOException {
-    Iterable<Set<Location>> iterable =
-        location == MODULE_PATH || location == MODULE_SOURCE_PATH ? Collections.singletonList(new HashSet<>(moduleLocations))
-            : fileManager.listLocationsForModules(location);
-    return iterable;
+    return location == MODULE_PATH ? Collections.singletonList(
+        new HashSet<>(moduleLocations)) : fileManager.listLocationsForModules(location);
   }
 
   @Override
   public boolean contains(Location location, FileObject fo) throws IOException {
     return fo instanceof RuntimeJavaFileObject || fileManager.contains(location, fo);
   }
+
 
   @Override
   public int isSupportedOption(String option) {
@@ -198,23 +216,31 @@ public class RuntimeJavaFileManager implements JavaFileManager {
     LinkedHashMap<String, JavaMemoryClass> map = new LinkedHashMap<>();
     synchronized (outputClasses) {
       for (Entry<String, JavaMemoryClass> entry : outputClasses.entrySet()) {
-        map.put(entry.getKey().replaceAll("/", "."), entry.getValue());
+        map.put(NameConvertor.denormalize(entry.getKey()), entry.getValue());
       }
       outputClasses.clear();
     }
     return map;
   }
 
+
   public void addModule(Module module) {
-    synchronized (moduleLocations) {
-      moduleLocations.add(new JavaModuleLocation(module));
+    if (module.isNamed()) {
+      List<JavaModuleLocation> locations = module.getLayer().configuration().modules().stream()
+          .map(JavaModuleLocation::new).filter(JavaModuleLocation::notJrt)
+          .filter(JavaModuleLocation::isFile)
+          .toList();
+      synchronized (moduleLocations) {
+        moduleLocations.addAll(locations);
+      }
     }
   }
 
+  @SneakyThrows
   public void addExtraJar(File file) {//todo use it!
-    JavaJarFile javaJarFile = new JavaJarFile(file.getAbsolutePath(), file);
-    synchronized (extraJars) {
-      extraJars.put(javaJarFile.getName(), javaJarFile);
+    JavaArchive javaArchive = new JavaArchive(file);
+    synchronized (extraArchives) {
+      extraArchives.add(javaArchive);
     }
   }
 
