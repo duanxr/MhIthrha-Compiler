@@ -1,7 +1,6 @@
 package com.duanxr.mhithrha.component;
 
 import com.duanxr.mhithrha.loader.RuntimeClassLoader;
-import com.duanxr.mhithrha.loader.StandaloneClassLoader;
 import com.duanxr.mhithrha.resource.JavaMemoryClass;
 import com.duanxr.mhithrha.resource.JavaMemoryCode;
 import java.io.PrintWriter;
@@ -21,7 +20,6 @@ import lombok.SneakyThrows;
 /**
  * @author 段然 2022/9/5
  */
-@Getter
 public class CompilerCore {
 
   private final RuntimeClassLoader classLoader;
@@ -77,12 +75,12 @@ public class CompilerCore {
       }
       if (entries.size() == 1) {
         Entry<String, JavaMemoryClass> entry = entries.get(0);
-        Class<?> clazz = classLoader.defineClass(entry.getKey(), entry.getValue().getClassBytes());
+        Class<?> clazz = classLoader.defineClass(entry.getKey(), entry.getValue().getBytes());
         classesCache.put(entry.getKey(), clazz);
         return Collections.singletonMap(entry.getKey(), clazz);
       } else if (entries.size() > 1) {
         Map<String, byte[]> collect = entries.stream()
-            .collect(Collectors.toMap(Entry::getKey, entry -> entry.getValue().getClassBytes()));
+            .collect(Collectors.toMap(Entry::getKey, entry -> entry.getValue().getBytes()));
         Map<String, Class<?>> defineClasses = classLoader.defineClasses(collect);
         classesCache.putAll(defineClasses);
         return defineClasses;

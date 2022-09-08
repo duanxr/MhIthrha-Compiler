@@ -13,12 +13,9 @@ public class TestLauncher {
   @Test
   @SneakyThrows
   public void test() {
-    RuntimeCompiler withEclipse = RuntimeCompiler.withEclipseCompiler();
-    RuntimeCompiler withJavac = RuntimeCompiler.withJavacCompiler();//requires jvm option: --add-opens=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED
-    RuntimeCompiler withJdk = RuntimeCompiler.withJdkCompiler();//requires jdk
-    withEclipse.addModule(this.getClass().getModule());
-    new ReferenceTest(withEclipse).testReferenceMaven();
-    if(true)return;
+    RuntimeCompiler withEclipse = RuntimeCompiler.builder().withEclipseCompiler();
+    RuntimeCompiler withJavac = RuntimeCompiler.builder().withJavacCompiler();//requires jvm option: --add-opens=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED
+    RuntimeCompiler withJdk = RuntimeCompiler.builder().withJdkCompiler();//requires jdk
 
     doTest(withEclipse);
     doTest(withJavac);

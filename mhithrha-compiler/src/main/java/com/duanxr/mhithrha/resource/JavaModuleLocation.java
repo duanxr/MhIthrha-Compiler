@@ -20,35 +20,29 @@ public class JavaModuleLocation implements Location {
   private final String moduleName;
   @Getter
   private final ModuleReference reference;
-
   @Getter
   private final File file;
 
   public JavaModuleLocation(ResolvedModule module) {
     this.moduleName = module.name();
     this.reference = module.reference();
-    this.file = createFile();
+    this.file = gerReferenceFile();
   }
-
   @Override
   public String getName() {
     return MODULE_PATH.getName() + '[' + moduleName + ']';
   }
-
   @Override
   public boolean isOutputLocation() {
     return false;
   }
-
   @Override
   public boolean isModuleOrientedLocation() {
     return true;
   }
-
   public boolean notEmpty() {
     return reference != null && reference.location().isPresent();
   }
-
   public boolean notJrt() {
     if (reference == null) {
       return false;
@@ -58,11 +52,11 @@ public class JavaModuleLocation implements Location {
         location.get().getScheme());
   }
 
-  public boolean isFile() {
+  public boolean isExist() {
     return file != null && file.exists();
   }
 
-  private File createFile() {
+  private File gerReferenceFile() {
     if (reference != null) {
       Optional<URI> location = reference.location();
       if (location.isPresent()) {

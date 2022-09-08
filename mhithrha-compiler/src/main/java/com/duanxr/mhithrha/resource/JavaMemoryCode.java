@@ -1,32 +1,45 @@
 package com.duanxr.mhithrha.resource;
 
-import com.duanxr.mhithrha.component.NameConvertor;
+import com.duanxr.mhithrha.component.JavaNameUtil;
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import javax.tools.SimpleJavaFileObject;
+import lombok.Getter;
 
 /**
  * @author 段然 2022/9/5
  */
 public class JavaMemoryCode extends SimpleJavaFileObject implements RuntimeJavaFileObject {
+  @Getter
   private final String code;
-
+  @Getter
   private final String className;
+  @Getter
+  private final String packageName;
+
   public JavaMemoryCode(String name, String code) {
-    super(createURI(name), Kind.SOURCE);
+    super(createURI(JavaNameUtil.toURI(name)), Kind.SOURCE);
     this.code = code;
-    this.className = name;
+    this.className = JavaNameUtil.toJavaName(name);
+    this.packageName = JavaNameUtil.toPackageName(name);
   }
   @Override
   public CharSequence getCharContent(boolean ignoreEncodingErrors) {
     return code;
   }
-
-  private static URI createURI(String name) {
-    return URI.create("string:///" + NameConvertor.normalize(name) + Kind.SOURCE.extension);
+  @Override
+  public InputStream openInputStream() {
+    return new ByteArrayInputStream(code.getBytes(StandardCharsets.UTF_8));
   }
-
-
-  public boolean inPackage(String packageName) {
-    return className.startsWith(packageName);
+  private static URI createURI(String path) {
+    return URI.create("string:///" + path + Kind.SOURCE.extension);
+  }
+  public boolean inPackage(String targetPackageName) {
+    return JavaNameUtil.inPackage(this.packageName, targetPackageName);
+  }
+  public boolean inPackages(String targetPackageName) {
+    return JavaNameUtil.inPackages(this.packageName, targetPackageName);
   }
 }

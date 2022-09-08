@@ -78,7 +78,7 @@ public class ResourcesLoader {
   }
 
   public RuntimeJavaFileObject loadJavaFile(File file, String className, Kind kind) {
-    String normalizedFileName = NameConvertor.normalize(className);
+    String normalizedFileName = JavaNameUtil.toURI(className);
     normalizedFileName += kind.extension;
     if (isArchive(file)) {
       JavaArchive javaArchive = ARCHIVE_CACHE.get(file);

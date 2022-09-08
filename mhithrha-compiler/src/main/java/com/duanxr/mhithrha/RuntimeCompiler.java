@@ -4,6 +4,7 @@ package com.duanxr.mhithrha;
 import com.duanxr.mhithrha.component.CompileDiagnosticListener;
 import com.duanxr.mhithrha.component.CompilerCore;
 import com.duanxr.mhithrha.component.JavaCodeParser;
+import com.duanxr.mhithrha.component.JavaCompilerFactory;
 import com.duanxr.mhithrha.component.ResourcesLoader;
 import com.duanxr.mhithrha.component.RuntimeJavaFileManager;
 import com.duanxr.mhithrha.loader.IntrusiveClassLoader;
@@ -12,98 +13,62 @@ import com.duanxr.mhithrha.loader.StandaloneClassLoader;
 import com.duanxr.mhithrha.resource.JavaMemoryCode;
 import java.io.File;
 import java.io.PrintWriter;
-import java.lang.reflect.Method;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import javax.tools.JavaCompiler;
-import javax.tools.JavaFileObject;
 import javax.tools.StandardJavaFileManager;
-import javax.tools.ToolProvider;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
-import org.eclipse.jdt.internal.compiler.tool.EclipseCompiler;
 
 /**
  * @author 段然 2022/8/29
  */
 @Slf4j
 public class RuntimeCompiler {
-
   private static final List<String> DEFAULT_OPTIONS = Arrays.asList("-g", "-nowarn");
   private static final PrintWriter DEFAULT_WRITER = new PrintWriter(System.err);
-  private final ClassLoader classLoader;
+  private final Charset charset;
   private final CompilerCore compilerCore;
   private final JavaCompiler javaCompiler;
+  private final ResourcesLoader resourcesLoader;
+  private final RuntimeClassLoader runtimeClassLoader;
+  private final RuntimeJavaFileManager runtimeJavaFileManager;
 
-  public RuntimeCompiler(JavaCompiler javaCompiler, ClassLoader classLoader) {
+  private RuntimeCompiler(JavaCompiler javaCompiler, ClassLoader classLoader, Charset charset,
+      boolean intrusive, long compilationTimeout) {
     this.javaCompiler = javaCompiler;
-    this.classLoader = classLoader;
-    this.compilerCore = create(javaCompiler, classLoader);
-  }
-
-  private CompilerCore create(JavaCompiler javaCompiler, ClassLoader classLoader) {
-    ResourcesLoader resourcesLoader = new ResourcesLoader();
-    RuntimeClassLoader runtimeClassLoader = new StandaloneClassLoader(classLoader);
-    //todo if springboot
+    classLoader = classLoader != null ? classLoader : Thread.currentThread().getContextClassLoader();
+    this.charset = charset != null ? charset : StandardCharsets.UTF_8;
+    this.runtimeClassLoader =
+        intrusive ? new IntrusiveClassLoader(classLoader) : new StandaloneClassLoader(classLoader);
+    this.resourcesLoader = new ResourcesLoader();//todo if springboot
     StandardJavaFileManager standardFileManager =
-        javaCompiler.getStandardFileManager(null, null, null);
-    RuntimeJavaFileManager runtimeJavaFileManager =
-        new RuntimeJavaFileManager(standardFileManager, runtimeClassLoader, resourcesLoader);
-    return new CompilerCore(runtimeClassLoader, javaCompiler, runtimeJavaFileManager,
+        javaCompiler.getStandardFileManager(null, null, charset);
+    this.runtimeJavaFileManager = new RuntimeJavaFileManager(standardFileManager,
+        runtimeClassLoader, resourcesLoader);
+    this.compilerCore = new CompilerCore(runtimeClassLoader, javaCompiler, runtimeJavaFileManager,
         resourcesLoader);
   }
 
-
-  public RuntimeCompiler(JavaCompiler javaCompiler) {
-    this.javaCompiler = javaCompiler;
-    this.classLoader = this.getClass().getClassLoader();
-    this.compilerCore = create(javaCompiler, classLoader);
-  }
-
-  public static RuntimeCompiler withEclipseCompiler() {
-    return new RuntimeCompiler(new EclipseCompiler());
-  }
-
-  public static RuntimeCompiler withEclipseCompiler(ClassLoader classLoader) {
-    return new RuntimeCompiler(new EclipseCompiler(), classLoader);
-  }
-
-  public static RuntimeCompiler withJdkCompiler() {
-    return new RuntimeCompiler(ToolProvider.getSystemJavaCompiler());
-  }
-
-  public static RuntimeCompiler withJdkCompiler(ClassLoader classLoader) {
-    return new RuntimeCompiler(ToolProvider.getSystemJavaCompiler(), classLoader);
-  }
-
-  public static RuntimeCompiler withJavacCompiler(ClassLoader classLoader) {
-    return new RuntimeCompiler(getJavacCompiler(), classLoader);
-  }
-
-  @SneakyThrows
-  @SuppressWarnings("")
-  private static JavaCompiler getJavacCompiler() {
-    Class<?> javacTool = Class.forName("com.sun.tools.javac.api.JavacTool");
-    Method create = javacTool.getMethod("create");
-    return (JavaCompiler) create.invoke(null);
-  }
-
-  public static RuntimeCompiler withJavacCompiler() {
-    return new RuntimeCompiler(getJavacCompiler());
+  public static Builder builder() {
+    return new Builder();
   }
 
   public void addModule(Module module) {
-    compilerCore.getFileManager().addModule(module);
+    runtimeJavaFileManager.addModule(module);
   }
 
   public void addExtraJar(File file) {
-    compilerCore.getFileManager().addExtraJar(file);
+    runtimeJavaFileManager.addExtraJar(file);
   }
 
   public void addExtraClass(File file) {
-    compilerCore.getFileManager().addExtraClass(file);
+    runtimeJavaFileManager.addExtraClass(file);
   }
 
   public Class<?> compile(String className, String javaCode, PrintWriter writer,
@@ -131,7 +96,7 @@ public class RuntimeCompiler {
         new JavaMemoryCode(className, javaCode));
     Map<String, Class<?>> classMap = compilerCore.compile(javaFileObjects, writer,
         diagnosticListener, optionList);
-    if (classMap==null) {
+    if (classMap == null) {
       throw new RuntimeCompilerException(diagnosticListener.getError());
     }
     Class<?> clazz = classMap.get(className);
@@ -166,8 +131,62 @@ public class RuntimeCompiler {
     return compile(compilerCore, null, javaCode, null, null);
   }
 
-  public ClassLoader getClassLoader() {
-    return this.compilerCore.getClassLoader();
+  public ClassLoader getRuntimeClassLoader() {
+    return this.runtimeClassLoader;
   }
 
+  public static class Builder {
+
+    private Charset charset;
+    private ClassLoader classLoader;
+    private long compilationTimeout;
+    private boolean intrusive;
+
+    private Builder() {
+      this.charset = null;
+      this.classLoader = null;
+      this.intrusive = false;
+      this.compilationTimeout = -1;
+    }
+
+    public Builder withClassLoader(ClassLoader classLoader) {
+      this.classLoader = Objects.requireNonNull(classLoader);
+      return this;
+    }
+
+    public Builder withCharset(Charset charset) {
+      this.charset = Objects.requireNonNull(charset);
+      return this;
+    }
+
+    public Builder intrusive(boolean intrusive) {
+      this.intrusive = intrusive;
+      return this;
+    }
+
+    public Builder compilationTimeout(long milliseconds) {
+      this.compilationTimeout = milliseconds;
+      return this;
+    }
+
+    public RuntimeCompiler withEclipseCompiler() {
+      return new RuntimeCompiler(JavaCompilerFactory.getEclipseCompiler(), classLoader, charset,
+          intrusive, compilationTimeout);
+    }
+
+    public RuntimeCompiler withJdkCompiler() {
+      return new RuntimeCompiler(JavaCompilerFactory.getJdkCompiler(), classLoader, charset,
+          intrusive, compilationTimeout);
+    }
+
+    public RuntimeCompiler withJavacCompiler() {
+      return new RuntimeCompiler(JavaCompilerFactory.getJavacCompiler(), classLoader, charset,
+          intrusive, compilationTimeout);
+    }
+
+    public RuntimeCompiler withCustomCompiler(JavaCompiler javaCompiler) {
+      return new RuntimeCompiler(javaCompiler, classLoader, charset, intrusive,
+          compilationTimeout);
+    }
+  }
 }
