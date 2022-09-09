@@ -1,7 +1,8 @@
 package com.duanxr.mhithrha.test;
 
 import com.duanxr.mhithrha.RuntimeCompiler;
-import com.google.common.base.Strings;
+import com.duanxr.mhithrha.RuntimeCompiler.Builder;
+import java.util.function.Function;
 import lombok.SneakyThrows;
 import org.junit.Test;
 
@@ -13,13 +14,50 @@ public class TestLauncher {
   @Test
   @SneakyThrows
   public void test() {
-    RuntimeCompiler withEclipse = RuntimeCompiler.builder().withEclipseCompiler();
-    RuntimeCompiler withJavac = RuntimeCompiler.builder().withJavacCompiler();//requires jvm option: --add-opens=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED
-    RuntimeCompiler withJdk = RuntimeCompiler.builder().withJdkCompiler();//requires jdk
+    //Only test one at a time for IntrusiveClassLoader define class on current ClassLoader which cause LinkageError when define same class again.
+    //add jvm arg "--add-opens=java.base/java.lang=ALL-UNNAMED" to enable intrusively define class
+    //testWithEclipseCompiler();
+    //testWithJavacCompiler();
+    testWithJdkCompiler();
+  }
 
-    doTest(withEclipse);
-    doTest(withJavac);
-    doTest(withJdk);
+  private void testWithJdkCompiler() {
+    testCustomClassLoader(Builder::withJdkCompiler);
+    testDefaultClassLoader(Builder::withJdkCompiler);
+  }
+
+  private void testWithJavacCompiler() {
+    testCustomClassLoader(Builder::withJavacCompiler);
+    testDefaultClassLoader(Builder::withJavacCompiler);
+  }
+
+  private void testWithEclipseCompiler() {
+    testCustomClassLoader(Builder::withEclipseCompiler);
+    testDefaultClassLoader(Builder::withEclipseCompiler);
+  }
+
+  private void testDefaultClassLoader(Function<Builder, RuntimeCompiler> compilerBuildFunction) {
+    testStandalone(compilerBuildFunction, Thread.currentThread().getContextClassLoader());
+    testIntrusive(compilerBuildFunction, Thread.currentThread().getContextClassLoader());
+  }
+
+  private void testCustomClassLoader(Function<Builder, RuntimeCompiler> compilerBuildFunction) {
+    testStandalone(compilerBuildFunction, new ClassLoader() {
+    });
+    testIntrusive(compilerBuildFunction, new ClassLoader() {
+    });
+  }
+
+  public void testStandalone(Function<Builder, RuntimeCompiler> compilerBuildFunction,
+      ClassLoader classLoader) {
+    doTest(compilerBuildFunction.apply(
+        RuntimeCompiler.builder().withClassLoader(classLoader).intrusive(false)));
+  }
+
+  public void testIntrusive(Function<Builder, RuntimeCompiler> compilerBuildFunction,
+      ClassLoader classLoader) {
+    doTest(compilerBuildFunction.apply(
+        RuntimeCompiler.builder().withClassLoader(classLoader).intrusive(true)));
   }
 
   private void doTest(RuntimeCompiler compiler) {
@@ -32,8 +70,8 @@ public class TestLauncher {
   private void doTest(PackageTest packageTest) {
     packageTest.testPackageClass();
     packageTest.testPackageClassWithoutName();
-    //packageTest.testPackageAccessClassFromAnotherClassLoader();
-    packageTest.testPackageAccessClass();
+    packageTest.testPackageAccessCompiledClass();
+    packageTest.testPackageAccessClassFromAnotherClassLoader();
   }
 
   private void doTest(ReferenceTest referenceTest) {

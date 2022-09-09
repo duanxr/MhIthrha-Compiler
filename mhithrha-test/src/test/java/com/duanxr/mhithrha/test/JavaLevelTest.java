@@ -18,7 +18,6 @@ import org.junit.Assert;
  */
 @AllArgsConstructor
 public class JavaLevelTest {
-
   private RuntimeCompiler compiler;
 
   @SuppressWarnings("unchecked")
@@ -101,7 +100,6 @@ public class JavaLevelTest {
         """;
     String className = "Java17TestClass";
     try {
-
       Class<?> compiledClass = compiler.compile(className, code);
       Assert.assertEquals(compiledClass.getSimpleName(), className);
       Function<String, String> object = (Function<String, String>) compiledClass.getConstructor()

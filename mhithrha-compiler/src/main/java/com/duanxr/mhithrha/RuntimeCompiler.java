@@ -21,7 +21,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import javax.tools.JavaCompiler;
-import javax.tools.StandardJavaFileManager;
+import lombok.Getter;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
@@ -30,26 +30,22 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 public class RuntimeCompiler {
+
   private static final List<String> DEFAULT_OPTIONS = Arrays.asList("-g", "-nowarn");
   private static final PrintWriter DEFAULT_WRITER = new PrintWriter(System.err);
-  private final Charset charset;
   private final CompilerCore compilerCore;
-  private final JavaCompiler javaCompiler;
-  private final ResourcesLoader resourcesLoader;
+  @Getter
+  private final Configuration configuration;
   private final RuntimeClassLoader runtimeClassLoader;
   private final RuntimeJavaFileManager runtimeJavaFileManager;
-
   private RuntimeCompiler(JavaCompiler javaCompiler, ClassLoader classLoader, Charset charset,
       boolean intrusive, long compilationTimeout) {
-    this.javaCompiler = javaCompiler;
     classLoader = classLoader != null ? classLoader : Thread.currentThread().getContextClassLoader();
-    this.charset = charset != null ? charset : StandardCharsets.UTF_8;
-    this.runtimeClassLoader =
-        intrusive ? new IntrusiveClassLoader(classLoader) : new StandaloneClassLoader(classLoader);
-    this.resourcesLoader = new ResourcesLoader();//todo if springboot
-    StandardJavaFileManager standardFileManager =
-        javaCompiler.getStandardFileManager(null, null, charset);
-    this.runtimeJavaFileManager = new RuntimeJavaFileManager(standardFileManager,
+    charset = charset != null ? charset : StandardCharsets.UTF_8;
+    this.configuration = new Configuration(javaCompiler, classLoader, charset, intrusive, compilationTimeout);
+    this.runtimeClassLoader = intrusive ? new IntrusiveClassLoader(classLoader) : new StandaloneClassLoader(classLoader);
+    ResourcesLoader resourcesLoader = new ResourcesLoader();//todo if springboot
+    this.runtimeJavaFileManager = new RuntimeJavaFileManager(javaCompiler.getStandardFileManager(null, null, charset),
         runtimeClassLoader, resourcesLoader);
     this.compilerCore = new CompilerCore(runtimeClassLoader, javaCompiler, runtimeJavaFileManager,
         resourcesLoader);
@@ -80,7 +76,7 @@ public class RuntimeCompiler {
   private Class<?> compile(CompilerCore compilerCore, String className, String javaCode,
       PrintWriter writer, List<String> optionList) {
     if (javaCode == null || javaCode.isEmpty()) {
-      throw new IllegalArgumentException("javaCode is empty");
+      throw new IllegalArgumentException("java code is empty");
     }
     if (className == null || className.isEmpty()) {
       className = JavaCodeParser.getFullClassName(javaCode);
@@ -135,6 +131,11 @@ public class RuntimeCompiler {
     return this.runtimeClassLoader;
   }
 
+  public record Configuration(JavaCompiler javaCompiler, ClassLoader classLoader,
+                              Charset charset, boolean intrusive,
+                              long compilationTimeout) {
+  }
+
   public static class Builder {
 
     private Charset charset;
@@ -187,6 +188,11 @@ public class RuntimeCompiler {
     public RuntimeCompiler withCustomCompiler(JavaCompiler javaCompiler) {
       return new RuntimeCompiler(javaCompiler, classLoader, charset, intrusive,
           compilationTimeout);
+    }
+
+    public RuntimeCompiler withJikesCompiler() {
+      return new RuntimeCompiler(JavaCompilerFactory.getJavacCompiler(), classLoader, charset,
+          intrusive, compilationTimeout);
     }
   }
 }

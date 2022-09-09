@@ -59,5 +59,9 @@
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-loader</artifactId>
     </dependency>
+    <dependency>
+      <groupId>org.codehaus.plexus</groupId>
+      <artifactId>plexus-compiler-jikes</artifactId>
+    </dependency>
   </dependencies>
 </project>

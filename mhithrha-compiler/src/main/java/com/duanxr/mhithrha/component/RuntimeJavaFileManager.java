@@ -89,49 +89,48 @@ public class RuntimeJavaFileManager implements JavaFileManager {
       list = Collections.emptyList();
     }
     if (LOCATIONS.contains(location)) {
+      String uri = JavaNameUtil.toURI(packageName);
+      String javaPackageName = JavaNameUtil.toJavaName(packageName);
       List<RuntimeJavaFileObject> runtimeList = new ArrayList<>();
       List<RuntimeJavaFileObject> synchronizedList = Collections.synchronizedList(runtimeList);
       if (location == MODULE_PATH) {
-        String normalize = JavaNameUtil.toURI(packageName);
         moduleLocations.parallelStream().map(JavaModuleLocation::getFile)
             .forEach(file -> resourcesLoader.loadJavaFiles(
-                file, normalize, kinds, recurse, synchronizedList));
+                file, uri, kinds, recurse, synchronizedList));
       } else if (location == CLASS_OUTPUT) {
         compiledClasses.values().parallelStream()
             .filter(javaMemoryClass ->
-                javaMemoryClass.inPackage(packageName))
+                javaMemoryClass.inPackage(javaPackageName))
             .forEach(synchronizedList::add);
       } else if (location == SOURCE_PATH) {
         if (kinds.contains(Kind.CLASS)) {
           compiledClasses.values().parallelStream()
               .filter(javaMemoryClass ->
-                  recurse ? javaMemoryClass.inPackages(packageName)
-                      : javaMemoryClass.inPackage(packageName))
+                  recurse ? javaMemoryClass.inPackages(javaPackageName)
+                      : javaMemoryClass.inPackage(javaPackageName))
               .forEach(synchronizedList::add);
         }
         if (kinds.contains(Kind.SOURCE)) {
-          String denormalize = JavaNameUtil.toJavaName(packageName);
           compiledCodes.values().parallelStream()
               .filter(javaMemoryCode ->
-                  recurse ? javaMemoryCode.inPackages(packageName)
-                      : javaMemoryCode.inPackage(packageName))
+                  recurse ? javaMemoryCode.inPackages(javaPackageName)
+                      : javaMemoryCode.inPackage(javaPackageName))
               .forEach(synchronizedList::add);
         }
       } else if (location == CLASS_PATH) {
         if (kinds.contains(Kind.CLASS)) {
-          String normalize = JavaNameUtil.toURI(packageName);
           compiledClasses.values().parallelStream()
               .filter(javaMemoryClass ->
-                  recurse ? javaMemoryClass.inPackages(packageName)
-                      : javaMemoryClass.inPackage(packageName))
+                  recurse ? javaMemoryClass.inPackages(javaPackageName)
+                      : javaMemoryClass.inPackage(javaPackageName))
               .forEach(synchronizedList::add);
           extraArchives.parallelStream().map(JavaArchive::getFile)
               .forEach(file -> resourcesLoader.loadJavaFiles(
-                  file, normalize, kinds, recurse, synchronizedList));
+                  file, uri, kinds, recurse, synchronizedList));
           extraClasses.values().parallelStream()
               .filter(javaFileClass ->
-                  recurse ? javaFileClass.inPackages(packageName)
-                      : javaFileClass.inPackage(packageName))
+                  recurse ? javaFileClass.inPackages(javaPackageName)
+                      : javaFileClass.inPackage(javaPackageName))
               .forEach(synchronizedList::add);
         }
       }
@@ -181,28 +180,28 @@ public class RuntimeJavaFileManager implements JavaFileManager {
       if (location == MODULE_PATH) {
         RuntimeJavaFileObject javaFileObject = moduleLocations.parallelStream()
             .map(JavaModuleLocation::getFile)
-            .map(file -> resourcesLoader.loadJavaFile(file, className, kind))
+            .map(file -> resourcesLoader.loadJavaFile(file, className, kind))//name uri?
             .filter(Objects::nonNull)
             .findAny().orElse(null);
         if (javaFileObject != null) {
           return javaFileObject;
         }
       } else {
-        String javaName = JavaNameUtil.toJavaName(className);
+        String javaClassName = JavaNameUtil.toJavaName(className);
         if (location == CLASS_OUTPUT && kind == Kind.CLASS) {
-          JavaMemoryClass javaMemoryClass = compiledClasses.get(javaName);
+          JavaMemoryClass javaMemoryClass = compiledClasses.get(javaClassName);
           if (javaMemoryClass != null) {
             return javaMemoryClass;
           }
         } else if (location == SOURCE_PATH) {
           if (kind == Kind.SOURCE) {
-            JavaMemoryCode javaMemoryCode = compiledCodes.get(javaName);
+            JavaMemoryCode javaMemoryCode = compiledCodes.get(javaClassName);
             if (javaMemoryCode != null) {
               return javaMemoryCode;
             }
           }
           if (kind == Kind.CLASS) {
-            JavaMemoryClass javaMemoryClass = compiledClasses.get(javaName);
+            JavaMemoryClass javaMemoryClass = compiledClasses.get(javaClassName);
             if (javaMemoryClass != null) {
               return javaMemoryClass;
             }
@@ -211,21 +210,21 @@ public class RuntimeJavaFileManager implements JavaFileManager {
           if (kind == Kind.CLASS) {
             Optional<JavaMemoryClass> memoryClass = compiledClasses.values().parallelStream()
                 .filter(javaMemoryClass ->
-                    javaMemoryClass.getClassName().equals(javaName))
+                    javaMemoryClass.getClassName().equals(javaClassName))
                 .findAny();
             if (memoryClass.isPresent()) {
               return memoryClass.get();
             }
             Optional<JavaFileClass> extraClass = extraClasses.values().parallelStream()
                 .filter(javaMemoryClass ->
-                    javaMemoryClass.getClassName().equals(javaName))
+                    javaMemoryClass.getClassName().equals(javaClassName))
                 .findAny();
             if (extraClass.isPresent()) {
               return extraClass.get();
             }
             Optional<RuntimeJavaFileObject> extraArchiveClass = extraArchives.parallelStream()
                 .map(JavaArchive::getFile)
-                .map(file -> resourcesLoader.loadJavaFile(file, javaName, kind)).findAny();
+                .map(file -> resourcesLoader.loadJavaFile(file, javaClassName, kind)).findAny();
             if (extraArchiveClass.isPresent()) {
               return extraArchiveClass.get();
             }

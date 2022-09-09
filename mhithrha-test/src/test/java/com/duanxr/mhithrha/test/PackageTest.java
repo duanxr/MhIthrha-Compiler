@@ -16,6 +16,7 @@ import org.junit.Assert;
 @AllArgsConstructor
 @SuppressWarnings("unchecked")
 public class PackageTest {
+
   private RuntimeCompiler compiler;
 
   public void testPackageClass() {
@@ -85,6 +86,10 @@ public class PackageTest {
   }
 
   public void testPackageAccessClassFromAnotherClassLoader() {
+    //you can not access the same package class from another class loader
+    boolean shouldSucceed = compiler.getConfiguration().intrusive()
+        && compiler.getConfiguration().classLoader() == Thread.currentThread()
+        .getContextClassLoader();
     String code = """
         package com.duanxr.mhithrha.test.component;
         import com.duanxr.mhithrha.test.runtime.PackageTestClass2;
@@ -115,13 +120,18 @@ public class PackageTest {
       int read = isReader.read(charArray);
       String contents = new String(charArray);
       Assert.assertEquals(contents, className);
-    } catch (Exception e) {
-      e.printStackTrace();
-      fail();
+      if (!shouldSucceed) {
+        fail();
+      }
+    } catch (Throwable e) {
+      if (shouldSucceed) {
+        e.printStackTrace();
+        fail();
+      }
     }
   }
 
-  public void testPackageAccessClass() {
+  public void testPackageAccessCompiledClass() {
     String code0 = """
         package com.duanxr.mhithrha.test.component;
         import com.duanxr.mhithrha.test.component.CustomClass;
@@ -156,7 +166,8 @@ public class PackageTest {
       Assert.assertEquals(compiledClass.getName(), className1);
       Function<String, String> object = (Function<String, String>) compiledClass.getConstructor()
           .newInstance();
-      Assert.assertEquals(object.apply(className1), "custom:com.duanxr.mhithrha.test.component.PackageTestClass5");
+      Assert.assertEquals(object.apply(className1),
+          "custom:com.duanxr.mhithrha.test.component.PackageTestClass5");
     } catch (Exception e) {
       e.printStackTrace();
       fail();
