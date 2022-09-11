@@ -28,9 +28,5 @@
     <orderEntry type="library" scope="PROVIDED" name="Maven: org.projectlombok:lombok:1.18.24" level="project" />
     <orderEntry type="library" name="Maven: org.slf4j:slf4j-api:1.7.36" level="project" />
     <orderEntry type="library" name="Maven: org.springframework.boot:spring-boot-loader:2.6.4" level="project" />
-    <orderEntry type="library" name="Maven: org.codehaus.plexus:plexus-compiler-jikes:2.9.0" level="project" />
-    <orderEntry type="library" name="Maven: org.codehaus.plexus:plexus-utils:3.3.0" level="project" />
-    <orderEntry type="library" name="Maven: org.codehaus.plexus:plexus-component-annotations:2.1.0" level="project" />
-    <orderEntry type="library" name="Maven: org.codehaus.plexus:plexus-compiler-api:2.9.0" level="project" />
   </component>
 </module>

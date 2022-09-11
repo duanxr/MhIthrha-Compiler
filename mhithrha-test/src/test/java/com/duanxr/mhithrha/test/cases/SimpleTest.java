@@ -1,4 +1,4 @@
-package com.duanxr.mhithrha.test;
+package com.duanxr.mhithrha.test.cases;
 
 import static org.junit.Assert.fail;
 
@@ -12,16 +12,17 @@ import org.junit.Assert;
  * @author 段然 2022/9/6
  */
 @AllArgsConstructor
-public class TheadSafeTest {
+@SuppressWarnings("unchecked")
+public class SimpleTest {
 
   private RuntimeCompiler compiler;
 
   public void testClass() {
     String code = """
-        public class TestClass1{
+        public class SimpleTestClass1{
         }
         """;
-    String className = "TestClass1";
+    String className = "SimpleTestClass1";
     try {
       Class<?> compiledClass = compiler.compile(className, code);
       Assert.assertEquals(compiledClass.getSimpleName(), className);
@@ -33,10 +34,10 @@ public class TheadSafeTest {
 
   public void testClassWithoutName() {
     String code = """
-        public class TestClass2{
+        public class SimpleTestClass2{
         }
         """;
-    String className = "TestClass2";
+    String className = "SimpleTestClass2";
     try {
       Class<?> compiledClass = compiler.compile(code);
       Assert.assertEquals(compiledClass.getSimpleName(), className);
@@ -46,17 +47,16 @@ public class TheadSafeTest {
     }
   }
 
-  @SuppressWarnings("unchecked")
   public void testClassWithInterface() {
     String code = """
-        public class TestClass3 implements java.util.function.Supplier<String>{
+        public class SimpleTestClass3 implements java.util.function.Supplier<String>{
           @Override
           public String get() {
-            return "TestClass3";
+            return "SimpleTestClass3";
           }
         }
         """;
-    String className = "TestClass3";
+    String className = "SimpleTestClass3";
     try {
       Class<?> compiledClass = compiler.compile(className, code);
       Assert.assertEquals(compiledClass.getSimpleName(), className);
@@ -68,17 +68,16 @@ public class TheadSafeTest {
     }
   }
 
-  @SuppressWarnings("unchecked")
   public void testClassWithInterfaceWithoutName() {
     String code = """
-        public class TestClass4 implements java.util.function.Supplier<String>{
+        public class SimpleTestClass4 implements java.util.function.Supplier<String>{
           @Override
           public String get() {
-            return "TestClass4";
+            return "SimpleTestClass4";
           }
         }
         """;
-    String className = "TestClass4";
+    String className = "SimpleTestClass4";
     try {
       Class<?> compiledClass = compiler.compile(code);
       Assert.assertEquals(compiledClass.getSimpleName(), className);
@@ -90,20 +89,19 @@ public class TheadSafeTest {
     }
   }
 
-  @SuppressWarnings("unchecked")
-  public void testClassWithExceptionInterface() {
+  public void testClassWithCatchingException() {
     String code = """
-        public class TestClass5 implements java.util.function.Function<String,String>{
+        public class SimpleTestClass5 implements java.util.function.Function<String,String>{
           @Override
           public String apply(String s) {
             if(!getClass().getSimpleName().equals(s)){
-              throw new RuntimeException("TestClass5");
+              throw new RuntimeException("SimpleTestClass5");
             }
             return getClass().getSimpleName();
           }
         }
         """;
-    String className = "TestClass5";
+    String className = "SimpleTestClass5";
     try {
       Class<?> compiledClass = compiler.compile(className, code);
       Assert.assertEquals(compiledClass.getSimpleName(), className);
@@ -122,20 +120,19 @@ public class TheadSafeTest {
     }
   }
 
-  @SuppressWarnings("unchecked")
-  public void testClassWithExceptionInterfaceWithoutName() {
+  public void testClassWithCatchingExceptionWithoutName() {
     String code = """
-        public class TestClass6 implements java.util.function.Function<String,String>{
+        public class SimpleTestClass6 implements java.util.function.Function<String,String>{
           @Override
           public String apply(String s) {
             if(!getClass().getSimpleName().equals(s)){
-              throw new RuntimeException("TestClass6");
+              throw new RuntimeException("SimpleTestClass6");
             }
             return getClass().getSimpleName();
           }
         }
         """;
-    String className = "TestClass6";
+    String className = "SimpleTestClass6";
     try {
       Class<?> compiledClass = compiler.compile(code);
       Assert.assertEquals(compiledClass.getSimpleName(), className);

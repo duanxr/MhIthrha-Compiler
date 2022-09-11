@@ -1,4 +1,4 @@
-package com.duanxr.mhithrha.test;
+package com.duanxr.mhithrha.test.cases;
 
 import static org.junit.Assert.fail;
 
@@ -19,8 +19,7 @@ public class ReferenceTest {
 
   private RuntimeCompiler compiler;
 
-
-  public void testReferenceJava() {
+  public void testReferenceJavaBase() {
     String code = """
         import java.io.ByteArrayInputStream;
         import java.io.InputStream;
@@ -53,7 +52,7 @@ public class ReferenceTest {
   }
 
 
-  public void testReferenceInner() {
+  public void testReferenceInnerClass() {
     String code = """
         import java.io.ByteArrayInputStream;
         import java.io.InputStream;
@@ -100,7 +99,7 @@ public class ReferenceTest {
     }
   }
 
-  public void testReferenceMaven() {
+  public void testReferenceMavenDependency() {
     String code = """
         import com.google.common.base.Strings;
         import java.util.function.Function;
@@ -126,7 +125,7 @@ public class ReferenceTest {
     }
   }
 
-  public void testReferenceCustom() {
+  public void testReferenceParentClassLoaderLoadedClass() {
     String code = """
         import com.duanxr.mhithrha.test.component.CustomClass;
         import java.util.function.Function;
@@ -150,7 +149,7 @@ public class ReferenceTest {
     }
   }
 
-  public void testReferenceAnother() {
+  public void testReferenceCompiledClass() {
     String code0 = """
         import com.duanxr.mhithrha.test.component.CustomClass;
         import java.util.function.Function;
@@ -196,7 +195,7 @@ public class ReferenceTest {
   }
 
 
-  public void testReferenceEachOther() {
+  public void testReferenceEachOtherWithOneCompilation() {
     String code = """
         import java.util.function.Function;
           public class ReferenceTestClass7 implements Function<String, String> {

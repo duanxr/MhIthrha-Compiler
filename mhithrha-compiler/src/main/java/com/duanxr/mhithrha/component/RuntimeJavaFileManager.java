@@ -25,6 +25,7 @@ import static javax.tools.StandardLocation.SOURCE_PATH;
 
 import com.duanxr.mhithrha.loader.IntrusiveClassLoader;
 import com.duanxr.mhithrha.resource.JavaArchive;
+import com.duanxr.mhithrha.resource.JavaFileArchive;
 import com.duanxr.mhithrha.resource.JavaFileClass;
 import com.duanxr.mhithrha.resource.JavaMemoryClass;
 import com.duanxr.mhithrha.resource.JavaMemoryCode;
@@ -76,7 +77,7 @@ public class RuntimeJavaFileManager implements JavaFileManager {
   }
 
   public ClassLoader getClassLoader(Location location) {
-    return classLoader instanceof IntrusiveClassLoader ? classLoader.getParent() : classLoader;
+    return classLoader;// instanceof IntrusiveClassLoader ? classLoader.getParent() : ;
   }
 
   @SuppressWarnings("unchecked")
@@ -125,8 +126,8 @@ public class RuntimeJavaFileManager implements JavaFileManager {
                       : javaMemoryClass.inPackage(javaPackageName))
               .forEach(synchronizedList::add);
           extraArchives.parallelStream().map(JavaArchive::getFile)
-              .forEach(file -> resourcesLoader.loadJavaFiles(
-                  file, uri, kinds, recurse, synchronizedList));
+              .filter(Objects::nonNull)
+              .forEach(file -> resourcesLoader.loadJavaFiles(file, uri, kinds, recurse, synchronizedList));
           extraClasses.values().parallelStream()
               .filter(javaFileClass ->
                   recurse ? javaFileClass.inPackages(javaPackageName)
@@ -151,6 +152,9 @@ public class RuntimeJavaFileManager implements JavaFileManager {
     }
     if (file instanceof JavaMemoryClass javaMemoryClass) {
       return javaMemoryClass.getClassName();
+    }
+    if (file instanceof JavaFileArchive javaFileArchive) { //todo 合并到接口
+      return javaFileArchive.getClassName();
     }
     return fileManager.inferBinaryName(location, file);
   }
@@ -224,7 +228,9 @@ public class RuntimeJavaFileManager implements JavaFileManager {
             }
             Optional<RuntimeJavaFileObject> extraArchiveClass = extraArchives.parallelStream()
                 .map(JavaArchive::getFile)
-                .map(file -> resourcesLoader.loadJavaFile(file, javaClassName, kind)).findAny();
+                .map(file -> resourcesLoader.loadJavaFile(file, javaClassName, kind))
+                .filter(Objects::nonNull)//todo add to other
+                .findAny();
             if (extraArchiveClass.isPresent()) {
               return extraArchiveClass.get();
             }
@@ -341,8 +347,9 @@ public class RuntimeJavaFileManager implements JavaFileManager {
   }
 
   @SneakyThrows
-  public void addExtraJar(File file) {//todo use it!
-    JavaArchive javaArchive = new JavaArchive(file);
+  public void addExtraJar(File file) {
+    JavaArchive javaArchive = ResourcesLoader.loadJavaArchive(file);
+    Objects.requireNonNull(javaArchive);
     synchronized (extraArchives) {
       extraArchives.add(javaArchive);
     }
@@ -350,6 +357,7 @@ public class RuntimeJavaFileManager implements JavaFileManager {
 
   public void addExtraClass(File file) {//todo use it!
     JavaFileClass javaFileClass = new JavaFileClass(file.getAbsolutePath(), file);
+    Objects.requireNonNull(javaFileClass);
     synchronized (extraClasses) {
       extraClasses.put(javaFileClass.getName(), javaFileClass);
     }

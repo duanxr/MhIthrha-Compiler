@@ -28,9 +28,7 @@ import lombok.extern.slf4j.Slf4j;
 /**
  * @author 段然 2022/8/29
  */
-@Slf4j
 public class RuntimeCompiler {
-
   private static final List<String> DEFAULT_OPTIONS = Arrays.asList("-g", "-nowarn");
   private static final PrintWriter DEFAULT_WRITER = new PrintWriter(System.err);
   private final CompilerCore compilerCore;
@@ -190,9 +188,5 @@ public class RuntimeCompiler {
           compilationTimeout);
     }
 
-    public RuntimeCompiler withJikesCompiler() {
-      return new RuntimeCompiler(JavaCompilerFactory.getJavacCompiler(), classLoader, charset,
-          intrusive, compilationTimeout);
-    }
   }
 }

@@ -2,6 +2,7 @@ package com.duanxr.mhithrha.loader;
 
 import com.google.common.base.Functions;
 import java.lang.invoke.MethodHandles.Lookup;
+import java.net.URLClassLoader;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -45,7 +46,7 @@ public final class StandaloneClassLoader extends RuntimeClassLoader {
         return defineClass(name, bytes);
       }
     }
-    return loadClass(name);
+    return loadClass(name);//todo java.lang.StackOverflowError
   }
   @SneakyThrows
   public Class<?> defineTask(String name) {

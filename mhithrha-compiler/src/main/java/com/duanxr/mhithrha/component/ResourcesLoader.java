@@ -21,27 +21,22 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @SuppressWarnings("resource")
 public class ResourcesLoader {
-
   private static final LoadingCache<File, JavaArchive> ARCHIVE_CACHE = Caffeine.newBuilder()
       .removalListener(ResourcesLoader::closeJavaArchive).build(ResourcesLoader::loadJavaArchive);
   private final Charset charset;
-
   public ResourcesLoader() {
     this.charset = StandardCharsets.UTF_8;
   }
-
   public ResourcesLoader(Charset charset) {
     this.charset = charset;
   }
-
   private static void closeJavaArchive(File file, JavaArchive javaArchive,
       RemovalCause cause) {
     if (javaArchive != null) {
       javaArchive.close();
     }
   }
-
-  private static JavaArchive loadJavaArchive(File file) {
+  public static JavaArchive loadJavaArchive(File file) {
     if (file.exists()) {
       try {
         return new JavaArchive(file);
