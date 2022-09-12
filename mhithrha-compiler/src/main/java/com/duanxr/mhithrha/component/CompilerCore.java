@@ -3,7 +3,7 @@ package com.duanxr.mhithrha.component;
 import com.duanxr.mhithrha.loader.RuntimeClassLoader;
 import com.duanxr.mhithrha.resource.JavaMemoryClass;
 import com.duanxr.mhithrha.resource.JavaMemoryCode;
-import java.io.PrintWriter;
+import java.io.Writer;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -14,7 +14,6 @@ import java.util.stream.Collectors;
 import javax.tools.DiagnosticListener;
 import javax.tools.JavaCompiler;
 import javax.tools.JavaFileObject;
-import lombok.Getter;
 import lombok.SneakyThrows;
 
 /**
@@ -52,10 +51,10 @@ public class CompilerCore {
   }
 
   public Map<String, Class<?>> compile(List<JavaMemoryCode> compilationUnits,
-      PrintWriter printWriter, DiagnosticListener<? super JavaFileObject> diagnosticListener,
+      Writer writer, DiagnosticListener<? super JavaFileObject> diagnosticListener,
       List<String> options) {
     fileManager.addCompileCode(compilationUnits);
-    Boolean success = compiler.getTask(printWriter, fileManager, diagnosticListener, options, null,
+    Boolean success = compiler.getTask(writer, fileManager, diagnosticListener, options, null,
         compilationUnits).call();
     if (!success) {
       return null;
@@ -73,20 +72,12 @@ public class CompilerCore {
           entries.add(entry);
         }
       }
-      if (entries.size() == 1) {
-        Entry<String, JavaMemoryClass> entry = entries.get(0);
-        Class<?> clazz = classLoader.defineClass(entry.getKey(), entry.getValue().getBytes());
-        classesCache.put(entry.getKey(), clazz);
-        return Collections.singletonMap(entry.getKey(), clazz);
-      } else if (entries.size() > 1) {
-        Map<String, byte[]> collect = entries.stream()
-            .collect(Collectors.toMap(Entry::getKey, entry -> entry.getValue().getBytes()));
-        Map<String, Class<?>> defineClasses = classLoader.defineClasses(collect);
-        classesCache.putAll(defineClasses);
-        return defineClasses;
-      }
+      Map<String, byte[]> collect = entries.stream()
+          .collect(Collectors.toMap(Entry::getKey, entry -> entry.getValue().getBytes()));
+      Map<String, Class<?>> defineClasses = classLoader.defineClasses(collect);
+      classesCache.putAll(defineClasses);
+      return defineClasses;
     }
-    return Collections.emptyMap();
   }
 
 }

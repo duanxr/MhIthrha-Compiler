@@ -2,6 +2,7 @@ package com.duanxr.mhithrha.test.cases;
 
 import static org.junit.Assert.fail;
 
+import com.duanxr.mhithrha.JavaSourceCode;
 import com.duanxr.mhithrha.RuntimeCompiler;
 import com.duanxr.mhithrha.test.component.TestAnnotation;
 import java.lang.reflect.Modifier;
@@ -26,7 +27,7 @@ public class SimpleTest {
         """;
     String className = "SimpleTestClass1";
     try {
-      Class<?> compiledClass = compiler.compile(className, code);
+      Class<?> compiledClass = compiler.compile(JavaSourceCode.of(className, code));
       Assert.assertEquals(compiledClass.getSimpleName(), className);
     } catch (Exception e) {
       e.printStackTrace();
@@ -41,7 +42,7 @@ public class SimpleTest {
         """;
     String className = "SimpleTestClass2";
     try {
-      Class<?> compiledClass = compiler.compile(code);
+      Class<?> compiledClass = compiler.compile(JavaSourceCode.of(code));
       Assert.assertEquals(compiledClass.getSimpleName(), className);
     } catch (Exception e) {
       e.printStackTrace();
@@ -60,7 +61,7 @@ public class SimpleTest {
         """;
     String className = "SimpleTestClass3";
     try {
-      Class<?> compiledClass = compiler.compile(className, code);
+      Class<?> compiledClass = compiler.compile(JavaSourceCode.of(className, code));
       Assert.assertEquals(compiledClass.getSimpleName(), className);
       Supplier<String> object = (Supplier<String>) compiledClass.getConstructor().newInstance();
       Assert.assertEquals(object.get(), className);
@@ -81,7 +82,7 @@ public class SimpleTest {
         """;
     String className = "SimpleTestClass4";
     try {
-      Class<?> compiledClass = compiler.compile(code);
+      Class<?> compiledClass = compiler.compile(JavaSourceCode.of(code));
       Assert.assertEquals(compiledClass.getSimpleName(), className);
       Supplier<String> object = (Supplier<String>) compiledClass.getConstructor().newInstance();
       Assert.assertEquals(object.get(), className);
@@ -105,7 +106,7 @@ public class SimpleTest {
         """;
     String className = "SimpleTestClass5";
     try {
-      Class<?> compiledClass = compiler.compile(className, code);
+      Class<?> compiledClass = compiler.compile(JavaSourceCode.of(className, code));
       Assert.assertEquals(compiledClass.getSimpleName(), className);
       Function<String, String> object = (Function<String, String>) compiledClass.getConstructor()
           .newInstance();
@@ -136,7 +137,7 @@ public class SimpleTest {
         """;
     String className = "SimpleTestClass6";
     try {
-      Class<?> compiledClass = compiler.compile(code);
+      Class<?> compiledClass = compiler.compile(JavaSourceCode.of(code));
       Assert.assertEquals(compiledClass.getSimpleName(), className);
       Function<String, String> object = (Function<String, String>) compiledClass.getConstructor()
           .newInstance();
@@ -162,7 +163,7 @@ public class SimpleTest {
         """;
     String className = "SimpleTestClass7";
     try {
-      Class<?> compiledClass = compiler.compile(code);
+      Class<?> compiledClass = compiler.compile(JavaSourceCode.of(code));
       Assert.assertEquals(compiledClass.getSimpleName(), className);
       TestAnnotation annotation = compiledClass.getAnnotation(TestAnnotation.class);
       Assert.assertEquals(annotation.value(), "I'm TestAnnotation");
@@ -180,7 +181,7 @@ public class SimpleTest {
         """;
     String className = "SimpleTestInterface8";
     try {
-      Class<?> compiledClass = compiler.compile(code);
+      Class<?> compiledClass = compiler.compile(JavaSourceCode.of(code));
       Assert.assertEquals(compiledClass.getSimpleName(), className);
       Assert.assertTrue(compiledClass.isInterface());
     } catch (Exception e) {
@@ -199,7 +200,7 @@ public class SimpleTest {
         """;
     String className = "SimpleTestClass9";
     try {
-      Class<?> compiledClass = compiler.compile(code);
+      Class<?> compiledClass = compiler.compile(JavaSourceCode.of(code));
       Assert.assertEquals(compiledClass.getSimpleName(), className);
       Assert.assertTrue(Modifier.isAbstract(compiledClass.getModifiers()));
     } catch (Exception e) {
@@ -215,7 +216,7 @@ public class SimpleTest {
         """;
     String className = "简单测试类10";
     try {
-      Class<?> compiledClass = compiler.compile(className,code);
+      Class<?> compiledClass = compiler.compile(JavaSourceCode.of(className,code));
       Assert.assertEquals(compiledClass.getSimpleName(), className);
     } catch (Exception e) {
       e.printStackTrace();
@@ -230,7 +231,7 @@ public class SimpleTest {
         """;
     String className = "简单测试类11";
     try {
-      Class<?> compiledClass = compiler.compile(code);
+      Class<?> compiledClass = compiler.compile(JavaSourceCode.of(code));
       Assert.assertEquals(compiledClass.getSimpleName(), className);
     } catch (Exception e) {
       e.printStackTrace();

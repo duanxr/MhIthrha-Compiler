@@ -6,6 +6,7 @@ import static org.junit.Assert.assertNotSame;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import com.duanxr.mhithrha.JavaSourceCode;
 import com.duanxr.mhithrha.RuntimeCompiler;
 import java.util.ArrayList;
 import java.util.List;
@@ -34,7 +35,7 @@ public class JavaLevelTest {
         """;
     String className = "Java8TestClass";
     try {
-      Class<?> compiledClass = compiler.compile(className, code);
+      Class<?> compiledClass = compiler.compile(JavaSourceCode.of(className, code));
       Assert.assertEquals(compiledClass.getSimpleName(), className);
       Function<List<String>, List<String>> object = (Function<List<String>, List<String>>) compiledClass.getConstructor()
           .newInstance();
@@ -60,7 +61,7 @@ public class JavaLevelTest {
         """;
     String className = "Java11TestClass";
     try {
-      Class<?> compiledClass = compiler.compile(className, code);
+      Class<?> compiledClass = compiler.compile(JavaSourceCode.of(className, code));
       Assert.assertEquals(compiledClass.getSimpleName(), className);
       Function<String, Boolean> object = (Function<String, Boolean>) compiledClass.getConstructor()
           .newInstance();
@@ -100,7 +101,7 @@ public class JavaLevelTest {
         """;
     String className = "Java17TestClass";
     try {
-      Class<?> compiledClass = compiler.compile(className, code);
+      Class<?> compiledClass = compiler.compile(JavaSourceCode.of(className, code));
       Assert.assertEquals(compiledClass.getSimpleName(), className);
       Function<String, String> object = (Function<String, String>) compiledClass.getConstructor()
           .newInstance();

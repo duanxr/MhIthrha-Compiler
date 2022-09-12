@@ -21,15 +21,14 @@ public final class StandaloneClassLoader extends RuntimeClassLoader {
   }
 
   public Map<String, Class<?>> defineClasses(Map<String, byte[]> classBytes) {
-    Map<String, Class<?>> classes = new HashMap<>(classBytes.size());
     List<String> classNames = classBytes.keySet().stream().toList();
     synchronized (defineTaskMap) {
       defineTaskMap.putAll(classBytes);
-      Map<String, Class<?>> classMap = classNames.stream()
+      Map<String, Class<?>> classes = classNames.stream()
           .collect(Collectors.toMap(Functions.identity(), this::defineTask));
       classBytes.keySet().forEach(defineTaskMap::remove);
+      return classes;
     }
-    return classes;
   }
 
   @Override

@@ -2,6 +2,7 @@ package com.duanxr.mhithrha.test.cases;
 
 import static org.junit.Assert.fail;
 
+import com.duanxr.mhithrha.JavaSourceCode;
 import com.duanxr.mhithrha.RuntimeCompiler;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -36,7 +37,7 @@ public class PackageTest {
         """;
     String className = "com.duanxr.mhithrha.test.runtime.PackageTestClass1";
     try {
-      Class<?> compiledClass = compiler.compile(className, code);
+      Class<?> compiledClass = compiler.compile(JavaSourceCode.of(className, code));
       Assert.assertEquals(compiledClass.getName(), className);
       Function<String, InputStream> object = (Function<String, InputStream>) compiledClass.getConstructor()
           .newInstance();
@@ -71,7 +72,7 @@ public class PackageTest {
         """;
     String className = "com.duanxr.mhithrha.test.runtime.PackageTestClass2";
     try {
-      Class<?> compiledClass = compiler.compile(code);
+      Class<?> compiledClass = compiler.compile(JavaSourceCode.of(code));
       Assert.assertEquals(compiledClass.getName(), className);
       Function<String, InputStream> object = (Function<String, InputStream>) compiledClass.getConstructor()
           .newInstance();
@@ -112,7 +113,7 @@ public class PackageTest {
         """;
     String className = "com.duanxr.mhithrha.test.component.PackageTestClass3";
     try {
-      Class<?> compiledClass = compiler.compile(className, code);
+      Class<?> compiledClass = compiler.compile(JavaSourceCode.of(className, code));
       Assert.assertEquals(compiledClass.getName(), className);
       Function<String, InputStream> object = (Function<String, InputStream>) compiledClass.getConstructor()
           .newInstance();
@@ -146,7 +147,7 @@ public class PackageTest {
         """;
     String className0 = "com.duanxr.mhithrha.test.component.PackageTestClass4";
     try {
-      Class<?> compiledClass = compiler.compile(className0, code0);
+      Class<?> compiledClass = compiler.compile(JavaSourceCode.of(className0, code0));
       Assert.assertEquals(compiledClass.getName(), className0);
     } catch (Exception e) {
       e.printStackTrace();
@@ -164,7 +165,7 @@ public class PackageTest {
         """;
     String className1 = "com.duanxr.mhithrha.test.component.PackageTestClass5";
     try {
-      Class<?> compiledClass = compiler.compile(className1, code1);
+      Class<?> compiledClass = compiler.compile(JavaSourceCode.of(className1, code1));
       Assert.assertEquals(compiledClass.getName(), className1);
       Function<String, String> object = (Function<String, String>) compiledClass.getConstructor()
           .newInstance();
@@ -195,7 +196,7 @@ public class PackageTest {
         """;
     String className = "com.duanxr.mhithrha.test.runtime.测试包.包测试类6";
     try {
-      Class<?> compiledClass = compiler.compile(className, code);
+      Class<?> compiledClass = compiler.compile(JavaSourceCode.of(className, code));
       Assert.assertEquals(compiledClass.getName(), className);
       Function<String, InputStream> object = (Function<String, InputStream>) compiledClass.getConstructor()
           .newInstance();
@@ -230,7 +231,7 @@ public class PackageTest {
         """;
     String className = "com.duanxr.mhithrha.test.runtime.测试包.包测试类7";
     try {
-      Class<?> compiledClass = compiler.compile(code);
+      Class<?> compiledClass = compiler.compile(JavaSourceCode.of(code));
       Assert.assertEquals(compiledClass.getName(), className);
       Function<String, InputStream> object = (Function<String, InputStream>) compiledClass.getConstructor()
           .newInstance();

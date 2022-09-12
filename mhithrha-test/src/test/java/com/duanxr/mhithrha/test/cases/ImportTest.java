@@ -2,6 +2,7 @@ package com.duanxr.mhithrha.test.cases;
 
 import static org.junit.Assert.fail;
 
+import com.duanxr.mhithrha.JavaSourceCode;
 import com.duanxr.mhithrha.RuntimeCompiler;
 import java.io.File;
 import java.util.function.Function;
@@ -31,7 +32,7 @@ public class ImportTest {
     String className = "ImportTest1";
     try {
       compiler.addExtraClass(new File("src/test/resources/ImportClass.class"));
-      Class<?> compiledClass = compiler.compile(className, code);
+      Class<?> compiledClass = compiler.compile(JavaSourceCode.of(className, code));
       Assert.assertEquals(compiledClass.getSimpleName(), className);
       Function<String, String> object = (Function<String, String>) compiledClass.getConstructor()
           .newInstance();
@@ -60,7 +61,7 @@ public class ImportTest {
     String className = "ImportTest2";
     try {
       compiler.addExtraArchive(new File("src/test/resources/fastjson-1.2.83.jar"));
-      Class<?> compiledClass = compiler.compile(className, code);
+      Class<?> compiledClass = compiler.compile(JavaSourceCode.of(className, code));
       Assert.assertEquals(compiledClass.getSimpleName(), className);
       Function<String, String> object = (Function<String, String>) compiledClass.getConstructor()
           .newInstance();

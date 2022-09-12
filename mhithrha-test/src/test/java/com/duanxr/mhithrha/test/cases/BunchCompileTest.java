@@ -15,28 +15,29 @@ import org.junit.Assert;
  */
 @AllArgsConstructor
 @SuppressWarnings("unchecked")
-public class OtherTest {
+public class BunchCompileTest {
 
   private RuntimeCompiler compiler;
 
-  public void testLombok() {
+  public void testBunchCompile() {
     String code = """
-        import java.util.function.Consumer;
+        package com.duanxr.mhithrha.test.runtime;
         @lombok.ToString
-        public class OtherTest1 implements Consumer<String>{
+        public class BunchCompileTest%s{
                 
             private String value = null;
             
-            @Override
-            public void accept(String str) {
-              this.value = str;
+            public BunchCompileTest()
+            {
+              this.value = this.getClass().getName();
             }
           }
         """;
-    String className = "OtherTest1";
+    String className = "BunchCompileTest%s";
     try {
-      if (!(compiler.getConfiguration().javaCompiler() instanceof EclipseCompiler)) {
-        compiler.addExtraArchive(new File("src/test/resources/lombok-1.18.24.jar"));
+      for (int i = 0; i < 100; i++) {
+        String codeI = String.format(code, i);
+        String classNameI = String.format(className, i);
       }
       Class<?> compiledClass = compiler.compile(JavaSourceCode.of(className, code));
       Assert.assertEquals(compiledClass.getSimpleName(), className);

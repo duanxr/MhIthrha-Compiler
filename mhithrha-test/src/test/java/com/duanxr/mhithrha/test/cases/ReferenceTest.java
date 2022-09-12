@@ -2,6 +2,7 @@ package com.duanxr.mhithrha.test.cases;
 
 import static org.junit.Assert.fail;
 
+import com.duanxr.mhithrha.JavaSourceCode;
 import com.duanxr.mhithrha.RuntimeCompiler;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -35,7 +36,7 @@ public class ReferenceTest {
         """;
     String className = "ReferenceTestClass1";
     try {
-      Class<?> compiledClass = compiler.compile(className, code);
+      Class<?> compiledClass = compiler.compile(JavaSourceCode.of(className, code));
       Assert.assertEquals(compiledClass.getSimpleName(), className);
       Function<String, InputStream> object = (Function<String, InputStream>) compiledClass.getConstructor()
           .newInstance();
@@ -83,7 +84,7 @@ public class ReferenceTest {
         """;
     String className = "ReferenceTestClass2";
     try {
-      Class<?> compiledClass = compiler.compile(className, code);
+      Class<?> compiledClass = compiler.compile(JavaSourceCode.of(className, code));
       Assert.assertEquals(compiledClass.getSimpleName(), className);
       Function<String, InputStream> object = (Function<String, InputStream>) compiledClass.getConstructor()
           .newInstance();
@@ -112,7 +113,7 @@ public class ReferenceTest {
         """;
     String className = "ReferenceTestClass3";
     try {
-      Class<?> compiledClass = compiler.compile(className, code);
+      Class<?> compiledClass = compiler.compile(JavaSourceCode.of(className, code));
       Assert.assertEquals(compiledClass.getSimpleName(), className);
       Function<String, Boolean> object = (Function<String, Boolean>) compiledClass.getConstructor()
           .newInstance();
@@ -138,7 +139,7 @@ public class ReferenceTest {
         """;
     String className = "ReferenceTestClass4";
     try {
-      Class<?> compiledClass = compiler.compile(className, code);
+      Class<?> compiledClass = compiler.compile(JavaSourceCode.of(className, code));
       Assert.assertEquals(compiledClass.getSimpleName(), className);
       Function<String, String> object = (Function<String, String>) compiledClass.getConstructor()
           .newInstance();
@@ -162,7 +163,7 @@ public class ReferenceTest {
         """;
     String className0 = "ReferenceTestClass5";
     try {
-      Class<?> compiledClass = compiler.compile(className0, code0);
+      Class<?> compiledClass = compiler.compile(JavaSourceCode.of(className0, code0));
       Assert.assertEquals(compiledClass.getSimpleName(), className0);
       Function<String, String> object = (Function<String, String>) compiledClass.getConstructor()
           .newInstance();
@@ -182,7 +183,7 @@ public class ReferenceTest {
         """;
     String className1 = "ReferenceTestClass6";
     try {
-      Class<?> compiledClass = compiler.compile(className1, code1);
+      Class<?> compiledClass = compiler.compile(JavaSourceCode.of(className1, code1));
       Assert.assertEquals(compiledClass.getSimpleName(), className1);
       Function<String, String> object = (Function<String, String>) compiledClass.getConstructor()
           .newInstance();
@@ -243,7 +244,7 @@ public class ReferenceTest {
         """;
     String className = "ReferenceTestClass7";
     try {
-      Class<?> compiledClass = compiler.compile(className, code);
+      Class<?> compiledClass = compiler.compile(JavaSourceCode.of(className, code));
       Assert.assertEquals(compiledClass.getSimpleName(), className);
       Function<String, String> object = (Function<String, String>) compiledClass.getConstructor()
           .newInstance();

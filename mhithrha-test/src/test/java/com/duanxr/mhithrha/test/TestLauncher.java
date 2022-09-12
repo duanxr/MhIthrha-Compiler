@@ -2,12 +2,14 @@ package com.duanxr.mhithrha.test;
 
 import com.duanxr.mhithrha.RuntimeCompiler;
 import com.duanxr.mhithrha.RuntimeCompiler.Builder;
+import com.duanxr.mhithrha.test.cases.BunchCompileTest;
 import com.duanxr.mhithrha.test.cases.ImportTest;
 import com.duanxr.mhithrha.test.cases.JavaLevelTest;
 import com.duanxr.mhithrha.test.cases.OtherTest;
 import com.duanxr.mhithrha.test.cases.PackageTest;
 import com.duanxr.mhithrha.test.cases.ReferenceTest;
 import com.duanxr.mhithrha.test.cases.SimpleTest;
+import com.duanxr.mhithrha.test.cases.TheadSafeTest;
 import java.util.function.Function;
 import lombok.SneakyThrows;
 import org.junit.Test;
@@ -79,7 +81,15 @@ public class TestLauncher {
     doTest(new JavaLevelTest(compiler));
     doTest(new PackageTest(compiler));
     doTest(new ImportTest(compiler));
+    doTest(new BunchCompileTest(compiler));
+    doTest(new TheadSafeTest(compiler));
     doTest(new OtherTest(compiler));
+  }
+
+  private void doTest(BunchCompileTest bunchCompileTest) {
+  }
+
+  private void doTest(TheadSafeTest theadSafeTest) {
   }
 
   private void doTest(OtherTest otherTest) {

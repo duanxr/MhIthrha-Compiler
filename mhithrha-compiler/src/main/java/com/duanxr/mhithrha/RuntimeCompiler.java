@@ -14,14 +14,15 @@ import com.duanxr.mhithrha.resource.JavaMemoryCode;
 import com.google.common.base.Strings;
 import java.io.File;
 import java.io.PrintWriter;
+import java.io.Writer;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import javax.tools.JavaCompiler;
 import lombok.Getter;
 import lombok.SneakyThrows;
@@ -31,8 +32,11 @@ import lombok.SneakyThrows;
  */
 public class RuntimeCompiler {
 
-  private static final List<String> DEFAULT_OPTIONS = Arrays.asList("-g", "-nowarn");
+  private static final List<String> DEFAULT_OPTIONS = List.of("-g", "-nowarn");
   private static final PrintWriter DEFAULT_WRITER = new PrintWriter(System.err);
+
+  private static final JavaCompileSetting DEFAULT_COMPILE_SETTING = JavaCompileSetting.builder()
+      .options(DEFAULT_OPTIONS).writer(DEFAULT_WRITER).build();
   private final CompilerCore compilerCore;
   @Getter
   private final Configuration configuration;
@@ -67,7 +71,6 @@ public class RuntimeCompiler {
   @SneakyThrows
   public void addExtraArchive(File file) {
     runtimeClassLoader.addArchive(file);
-    Class<?> aClass = runtimeClassLoader.loadClass("com.alibaba.fastjson.JSONObject");
     runtimeJavaFileManager.addExtraArchive(file);
   }
 
@@ -79,23 +82,9 @@ public class RuntimeCompiler {
     runtimeJavaFileManager.addExtraClass(name, file);
   }
 
-  public Class<?> compile(String className, String javaCode, PrintWriter writer,
-      List<String> optionList) {
-    return compile(compilerCore, className, javaCode, writer, optionList);
-  }
-
   @SneakyThrows
   private Class<?> compile(CompilerCore compilerCore, String className, String javaCode,
       PrintWriter writer, List<String> optionList) {
-    if (javaCode == null || javaCode.isEmpty()) {
-      throw new IllegalArgumentException("java code is empty");
-    }
-    if (className == null || className.isEmpty()) {
-      className = JavaCodeParser.getFullClassName(javaCode);
-      if (Strings.isNullOrEmpty(className)) {
-        throw new IllegalArgumentException("class name is empty, please set class name manually");
-      }
-    }
     if (writer == null) {
       writer = DEFAULT_WRITER;
     }
@@ -114,41 +103,83 @@ public class RuntimeCompiler {
     return clazz == null ? compilerCore.load(className) : clazz;
   }
 
-  public Class<?> compile(String className, String javaCode, List<String> optionList) {
-    return compile(compilerCore, className, javaCode, null, optionList);
+  public Class<?> compile(JavaSourceCode sourceCode) {
+    return compileSingular(sourceCode, null);
   }
 
-  public Class<?> compile(String className, String javaCode, PrintWriter writer) {
-    return compile(compilerCore, className, javaCode, writer, null);
+  private Class<?> compileSingular(JavaSourceCode sourceCode, JavaCompileSetting compileSetting) {
+    List<JavaMemoryCode> javaMemoryCodes = getSourceCode(Collections.singletonList(sourceCode));
+    List<String> options = getOptions(compileSetting);
+    Writer writer = getWriter(compileSetting);
+    CompileDiagnosticListener diagnosticListener = new CompileDiagnosticListener();
+    Map<String, Class<?>> classMap = compilerCore.compile(javaMemoryCodes, writer,
+        diagnosticListener, options);
+    if (classMap == null) {
+      throw new RuntimeCompilerException(diagnosticListener.getError());
+    }
+    return classMap.get(sourceCode.getName());
   }
 
-  public Class<?> compile(String javaCode, PrintWriter writer) {
-    return compile(compilerCore, null, javaCode, writer, null);
+  private List<JavaMemoryCode> getSourceCode(List<JavaSourceCode> sourceCodes) {
+    Optional<String> emptyCode = sourceCodes.parallelStream().map(JavaSourceCode::getCode)
+        .filter(Strings::isNullOrEmpty).findAny();
+    if (emptyCode.isPresent()) {
+      throw new IllegalArgumentException("source code is empty");
+    }
+    Optional<String> codeWithOutName = sourceCodes.parallelStream().peek(sourceCode -> {
+      if (Strings.isNullOrEmpty(sourceCode.getName())) {
+        sourceCode.setName(JavaCodeParser.getFullClassName(sourceCode.getCode()));
+      }
+    }).map(JavaSourceCode::getCode).filter(Strings::isNullOrEmpty).findAny();
+    if (codeWithOutName.isPresent()) {
+      throw new IllegalArgumentException(
+          "class name is empty and can't find class name by source code, please set class name manually");
+    }
+    return sourceCodes.parallelStream()
+        .map(sourceCode -> new JavaMemoryCode(sourceCode.getName(), sourceCode.getCode()))
+        .toList();
   }
 
-  public Class<?> compile(String className, String javaCode) {
-    return compile(compilerCore, className, javaCode, null, null);
+  private List<String> getOptions(JavaCompileSetting compileSetting) {
+    return compileSetting == null || compileSetting.getOptions() == null ? DEFAULT_OPTIONS
+        : compileSetting.getOptions();
   }
 
-  public Class<?> compile(String javaCode, PrintWriter writer, List<String> optionList) {
-    return compile(compilerCore, null, javaCode, writer, optionList);
+  private Writer getWriter(JavaCompileSetting compileSetting) {
+    return compileSetting == null || compileSetting.getWriter() == null ? DEFAULT_WRITER
+        : compileSetting.getWriter();
+  }
+  public Class<?> compile(JavaSourceCode sourceCode, JavaCompileSetting compileSetting) {
+    return compileSingular(sourceCode, compileSetting);
   }
 
-  public Class<?> compile(String javaCode, List<String> optionList) {
-    return compile(compilerCore, null, javaCode, null, optionList);
+  public Map<String, Class<?>> compile(List<JavaSourceCode> sourceCodes) {
+    return compileMultiple(sourceCodes, null);
   }
 
-  public Class<?> compile(String javaCode) {
-    return compile(compilerCore, null, javaCode, null, null);
+  private Map<String, Class<?>> compileMultiple(List<JavaSourceCode> sourceCodes,
+      JavaCompileSetting compileSetting) {
+    List<JavaMemoryCode> javaMemoryCodes = getSourceCode(sourceCodes);
+    List<String> options = getOptions(compileSetting);
+    Writer writer = getWriter(compileSetting);
+    CompileDiagnosticListener diagnosticListener = new CompileDiagnosticListener();
+    Map<String, Class<?>> classMap = compilerCore.compile(javaMemoryCodes, writer,
+        diagnosticListener, options);
+    if (classMap == null) {
+      throw new RuntimeCompilerException(diagnosticListener.getError());
+    }
+    return classMap;
   }
 
+  public Map<String, Class<?>> compile(List<JavaSourceCode> sourceCodes,
+      JavaCompileSetting compileSetting) {
+    return compileMultiple(sourceCodes, compileSetting);
+  }
   public ClassLoader getRuntimeClassLoader() {
     return this.runtimeClassLoader;
   }
-
-  public record Configuration(JavaCompiler javaCompiler, ClassLoader classLoader,
-                              Charset charset, boolean intrusive,
-                              long compilationTimeout) {
+  public record Configuration(JavaCompiler javaCompiler, ClassLoader classLoader, Charset charset,
+                              boolean intrusive, long compilationTimeout) {
 
   }
 
