@@ -3,6 +3,7 @@ package com.duanxr.mhithrha.test.cases;
 import static org.junit.Assert.fail;
 
 import com.duanxr.mhithrha.RuntimeCompiler;
+import com.duanxr.mhithrha.test.component.TestAnnotation;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import lombok.AllArgsConstructor;
@@ -145,6 +146,25 @@ public class SimpleTest {
       } catch (RuntimeException e) {
         Assert.assertEquals(e.getMessage(), className);
       }
+    } catch (Exception e) {
+      e.printStackTrace();
+      fail();
+    }
+  }
+
+  public void testClassWithAnnotation() {
+    String code = """
+        @com.duanxr.mhithrha.test.component.TestAnnotation("I'm TestAnnotation")
+        public class SimpleTestClass7{
+         
+        }
+        """;
+    String className = "SimpleTestClass7";
+    try {
+      Class<?> compiledClass = compiler.compile(code);
+      Assert.assertEquals(compiledClass.getSimpleName(), className);
+      TestAnnotation annotation = compiledClass.getAnnotation(TestAnnotation.class);
+      Assert.assertEquals(annotation.value(), "I'm TestAnnotation");
     } catch (Exception e) {
       e.printStackTrace();
       fail();

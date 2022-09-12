@@ -70,8 +70,7 @@ public class TestLauncher {
 
   public void testIntrusive(Function<Builder, RuntimeCompiler> compilerBuildFunction,
       ClassLoader classLoader) {
-    doTest(compilerBuildFunction.apply(
-        RuntimeCompiler.builder().withClassLoader(classLoader).intrusive(true)));
+    //doTest(compilerBuildFunction.apply(RuntimeCompiler.builder().withClassLoader(classLoader).intrusive(true)));
   }
 
   private void doTest(RuntimeCompiler compiler) {
@@ -88,7 +87,8 @@ public class TestLauncher {
   }
 
   private void doTest(ImportTest importTest) {
-
+    importTest.testImportFromExtraClassFile();
+    importTest.testImportFromExtraJarFile();
   }
 
   private void doTest(PackageTest packageTest) {
@@ -120,5 +120,6 @@ public class TestLauncher {
     simpleTest.testClassWithInterfaceWithoutName();
     simpleTest.testClassWithCatchingException();
     simpleTest.testClassWithCatchingExceptionWithoutName();
+    simpleTest.testClassWithAnnotation();
   }
 }

@@ -15,6 +15,7 @@ import java.io.File;
 import java.io.PrintWriter;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -23,12 +24,12 @@ import java.util.Objects;
 import javax.tools.JavaCompiler;
 import lombok.Getter;
 import lombok.SneakyThrows;
-import lombok.extern.slf4j.Slf4j;
 
 /**
  * @author 段然 2022/8/29
  */
 public class RuntimeCompiler {
+
   private static final List<String> DEFAULT_OPTIONS = Arrays.asList("-g", "-nowarn");
   private static final PrintWriter DEFAULT_WRITER = new PrintWriter(System.err);
   private final CompilerCore compilerCore;
@@ -36,14 +37,19 @@ public class RuntimeCompiler {
   private final Configuration configuration;
   private final RuntimeClassLoader runtimeClassLoader;
   private final RuntimeJavaFileManager runtimeJavaFileManager;
+
   private RuntimeCompiler(JavaCompiler javaCompiler, ClassLoader classLoader, Charset charset,
       boolean intrusive, long compilationTimeout) {
-    classLoader = classLoader != null ? classLoader : Thread.currentThread().getContextClassLoader();
+    classLoader =
+        classLoader != null ? classLoader : Thread.currentThread().getContextClassLoader();
     charset = charset != null ? charset : StandardCharsets.UTF_8;
-    this.configuration = new Configuration(javaCompiler, classLoader, charset, intrusive, compilationTimeout);
-    this.runtimeClassLoader = intrusive ? new IntrusiveClassLoader(classLoader) : new StandaloneClassLoader(classLoader);
+    this.configuration = new Configuration(javaCompiler, classLoader, charset, intrusive,
+        compilationTimeout);
+    this.runtimeClassLoader =
+        intrusive ? new IntrusiveClassLoader(classLoader) : new StandaloneClassLoader(classLoader);
     ResourcesLoader resourcesLoader = new ResourcesLoader();//todo if springboot
-    this.runtimeJavaFileManager = new RuntimeJavaFileManager(javaCompiler.getStandardFileManager(null, null, charset),
+    this.runtimeJavaFileManager = new RuntimeJavaFileManager(
+        javaCompiler.getStandardFileManager(null, null, charset),
         runtimeClassLoader, resourcesLoader);
     this.compilerCore = new CompilerCore(runtimeClassLoader, javaCompiler, runtimeJavaFileManager,
         resourcesLoader);
@@ -57,12 +63,19 @@ public class RuntimeCompiler {
     runtimeJavaFileManager.addModule(module);
   }
 
-  public void addExtraJar(File file) {
-    runtimeJavaFileManager.addExtraJar(file);
+  @SneakyThrows
+  public void addExtraArchive(File file) {
+    runtimeClassLoader.addArchive(file);
+    Class<?> aClass = runtimeClassLoader.loadClass("com.alibaba.fastjson.JSONObject");
+    runtimeJavaFileManager.addExtraArchive(file);
   }
 
+  @SneakyThrows
   public void addExtraClass(File file) {
-    runtimeJavaFileManager.addExtraClass(file);
+    byte[] classContent = Files.readAllBytes(file.toPath());
+    Class<?> clazz = runtimeClassLoader.defineClass(null, classContent);
+    String name = clazz.getName();
+    runtimeJavaFileManager.addExtraClass(name, file);
   }
 
   public Class<?> compile(String className, String javaCode, PrintWriter writer,
@@ -132,6 +145,7 @@ public class RuntimeCompiler {
   public record Configuration(JavaCompiler javaCompiler, ClassLoader classLoader,
                               Charset charset, boolean intrusive,
                               long compilationTimeout) {
+
   }
 
   public static class Builder {

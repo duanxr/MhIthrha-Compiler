@@ -35,7 +35,7 @@ public class OtherTest {
     String className = "OtherTest1";
     try {
       if (!(compiler.getConfiguration().javaCompiler() instanceof EclipseCompiler)) {
-        compiler.addExtraJar(new File("src/test/resources/lombok-1.18.24.jar"));
+        compiler.addExtraArchive(new File("src/test/resources/lombok-1.18.24.jar"));
       }
       Class<?> compiledClass = compiler.compile(className, code);
       Assert.assertEquals(compiledClass.getSimpleName(), className);

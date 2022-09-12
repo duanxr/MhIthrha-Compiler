@@ -13,6 +13,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Set;
 import javax.tools.JavaFileObject.Kind;
+import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -21,30 +22,29 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @SuppressWarnings("resource")
 public class ResourcesLoader {
+
   private static final LoadingCache<File, JavaArchive> ARCHIVE_CACHE = Caffeine.newBuilder()
       .removalListener(ResourcesLoader::closeJavaArchive).build(ResourcesLoader::loadJavaArchive);
   private final Charset charset;
+
   public ResourcesLoader() {
     this.charset = StandardCharsets.UTF_8;
   }
+
   public ResourcesLoader(Charset charset) {
     this.charset = charset;
   }
+
   private static void closeJavaArchive(File file, JavaArchive javaArchive,
       RemovalCause cause) {
     if (javaArchive != null) {
       javaArchive.close();
     }
   }
+
+  @SneakyThrows
   public static JavaArchive loadJavaArchive(File file) {
-    if (file.exists()) {
-      try {
-        return new JavaArchive(file);
-      } catch (Exception e) {
-        log.error("load java archive error", e);
-      }
-    }
-    return null;
+      return new JavaArchive(file);
   }
 
   private String getExtension(String name) {

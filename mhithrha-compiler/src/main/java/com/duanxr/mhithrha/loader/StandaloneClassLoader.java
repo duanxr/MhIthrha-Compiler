@@ -1,11 +1,11 @@
 package com.duanxr.mhithrha.loader;
 
 import com.google.common.base.Functions;
-import java.lang.invoke.MethodHandles.Lookup;
-import java.net.URLClassLoader;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.SneakyThrows;
 
@@ -13,7 +13,9 @@ import lombok.SneakyThrows;
  * @author 段然 2022/9/5
  */
 public final class StandaloneClassLoader extends RuntimeClassLoader {
+
   private final Map<String, byte[]> defineTaskMap = new HashMap<>();
+
   public StandaloneClassLoader(ClassLoader parent) {
     super(parent);
   }
@@ -34,10 +36,12 @@ public final class StandaloneClassLoader extends RuntimeClassLoader {
   public Class<?> defineReloadableClass(String name, byte[] bytes) {
     return new IsolatedClassLoader(this).defineClass(name, bytes);
   }
+
   @Override
   public Class<?> defineClass(String name, byte[] bytes) {
     return defineClass(name, bytes, 0, bytes.length);
   }
+
   @Override
   protected Class<?> findClass(String name) throws ClassNotFoundException {
     synchronized (defineTaskMap) {
@@ -46,8 +50,20 @@ public final class StandaloneClassLoader extends RuntimeClassLoader {
         return defineClass(name, bytes);
       }
     }
-    return loadClass(name);//todo java.lang.StackOverflowError
+    synchronized (findClassSet) {
+      if (!findClassSet.add(name)) {
+        throw new ClassNotFoundException(name);
+      }
+      try {
+        return super.findClass(name);
+      } finally {
+        findClassSet.remove(name);
+      }
+    }
   }
+
+  private final Set<String> findClassSet = new HashSet<>();
+
   @SneakyThrows
   public Class<?> defineTask(String name) {
     synchronized (defineTaskMap) {

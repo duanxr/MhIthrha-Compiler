@@ -23,7 +23,6 @@ import static javax.tools.StandardLocation.CLASS_PATH;
 import static javax.tools.StandardLocation.MODULE_PATH;
 import static javax.tools.StandardLocation.SOURCE_PATH;
 
-import com.duanxr.mhithrha.loader.IntrusiveClassLoader;
 import com.duanxr.mhithrha.resource.JavaArchive;
 import com.duanxr.mhithrha.resource.JavaFileArchive;
 import com.duanxr.mhithrha.resource.JavaFileClass;
@@ -58,7 +57,7 @@ import lombok.extern.slf4j.Slf4j;
 public class RuntimeJavaFileManager implements JavaFileManager {
 
   private static final Set<Location> LOCATIONS = Set.of(SOURCE_PATH, CLASS_PATH, CLASS_OUTPUT,
-      MODULE_PATH);//todo
+      MODULE_PATH);
   private final ClassLoader classLoader;
   private final Map<String, JavaMemoryClass> compiledClasses = new LinkedHashMap<>();
   private final Map<String, JavaMemoryCode> compiledCodes = new LinkedHashMap<>();
@@ -126,8 +125,8 @@ public class RuntimeJavaFileManager implements JavaFileManager {
                       : javaMemoryClass.inPackage(javaPackageName))
               .forEach(synchronizedList::add);
           extraArchives.parallelStream().map(JavaArchive::getFile)
-              .filter(Objects::nonNull)
-              .forEach(file -> resourcesLoader.loadJavaFiles(file, uri, kinds, recurse, synchronizedList));
+              .forEach(file -> resourcesLoader.loadJavaFiles(file, uri, kinds, recurse,
+                  synchronizedList));
           extraClasses.values().parallelStream()
               .filter(javaFileClass ->
                   recurse ? javaFileClass.inPackages(javaPackageName)
@@ -153,7 +152,7 @@ public class RuntimeJavaFileManager implements JavaFileManager {
     if (file instanceof JavaMemoryClass javaMemoryClass) {
       return javaMemoryClass.getClassName();
     }
-    if (file instanceof JavaFileArchive javaFileArchive) { //todo 合并到接口
+    if (file instanceof JavaFileArchive javaFileArchive) {
       return javaFileArchive.getClassName();
     }
     return fileManager.inferBinaryName(location, file);
@@ -184,7 +183,7 @@ public class RuntimeJavaFileManager implements JavaFileManager {
       if (location == MODULE_PATH) {
         RuntimeJavaFileObject javaFileObject = moduleLocations.parallelStream()
             .map(JavaModuleLocation::getFile)
-            .map(file -> resourcesLoader.loadJavaFile(file, className, kind))//name uri?
+            .map(file -> resourcesLoader.loadJavaFile(file, className, kind))
             .filter(Objects::nonNull)
             .findAny().orElse(null);
         if (javaFileObject != null) {
@@ -229,7 +228,7 @@ public class RuntimeJavaFileManager implements JavaFileManager {
             Optional<RuntimeJavaFileObject> extraArchiveClass = extraArchives.parallelStream()
                 .map(JavaArchive::getFile)
                 .map(file -> resourcesLoader.loadJavaFile(file, javaClassName, kind))
-                .filter(Objects::nonNull)//todo add to other
+                .filter(Objects::nonNull)
                 .findAny();
             if (extraArchiveClass.isPresent()) {
               return extraArchiveClass.get();
@@ -347,19 +346,24 @@ public class RuntimeJavaFileManager implements JavaFileManager {
   }
 
   @SneakyThrows
-  public void addExtraJar(File file) {
+  public void addExtraArchive(File file) {
+    if (!file.exists()) {
+      throw new IOException("file not found: " + file);
+    }
     JavaArchive javaArchive = ResourcesLoader.loadJavaArchive(file);
-    Objects.requireNonNull(javaArchive);
     synchronized (extraArchives) {
       extraArchives.add(javaArchive);
     }
   }
 
-  public void addExtraClass(File file) {//todo use it!
-    JavaFileClass javaFileClass = new JavaFileClass(file.getAbsolutePath(), file);
-    Objects.requireNonNull(javaFileClass);
+  @SneakyThrows
+  public void addExtraClass(String name, File file) {
+    if (!file.exists()) {
+      throw new IOException("file not found: " + file);
+    }
+    JavaFileClass javaFileClass = new JavaFileClass(name, file);
     synchronized (extraClasses) {
-      extraClasses.put(javaFileClass.getName(), javaFileClass);
+      extraClasses.put(javaFileClass.getClassName(), javaFileClass);
     }
   }
 

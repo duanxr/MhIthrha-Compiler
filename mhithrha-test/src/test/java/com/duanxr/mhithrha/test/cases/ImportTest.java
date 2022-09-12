@@ -3,6 +3,7 @@ package com.duanxr.mhithrha.test.cases;
 import static org.junit.Assert.fail;
 
 import com.duanxr.mhithrha.RuntimeCompiler;
+import java.io.File;
 import java.util.function.Function;
 import lombok.AllArgsConstructor;
 import org.junit.Assert;
@@ -13,25 +14,28 @@ import org.junit.Assert;
 @AllArgsConstructor
 @SuppressWarnings("unchecked")
 public class ImportTest {
+
   private RuntimeCompiler compiler;
 
   public void testImportFromExtraClassFile() {
     String code = """
         import java.util.function.Function;
+        import com.duanxr.mhithrha.test.component.ImportClass;
         public class ImportTest1 implements Function<String,String>{
             @Override
             public String apply(String str) {
-              return new CustomClass().get(str);
+              return str+':'+new ImportClass().get();
             }
           }
         """;
     String className = "ImportTest1";
     try {
+      compiler.addExtraClass(new File("src/test/resources/ImportClass.class"));
       Class<?> compiledClass = compiler.compile(className, code);
       Assert.assertEquals(compiledClass.getSimpleName(), className);
       Function<String, String> object = (Function<String, String>) compiledClass.getConstructor()
           .newInstance();
-      Assert.assertEquals(object.apply(className), "custom:ReferenceTestClass4");
+      Assert.assertEquals(object.apply(className), "ImportTest1:I'm ImportClass");
     } catch (Exception e) {
       e.printStackTrace();
       fail();
@@ -40,22 +44,28 @@ public class ImportTest {
 
   public void testImportFromExtraJarFile() {
     String code = """
+        import com.alibaba.fastjson.JSONObject;
         import java.util.function.Function;
-        public class ReferenceTestClass4 implements Function<String,String>{
-            @Override
-            public String apply(String str) {
-              return new CustomClass().get(str);
-            }
-          }
+        public class ImportTest2 implements Function<String,String>{
+               @Override
+               public String apply(String str) {
+                 JSONObject jsonObject = new JSONObject();
+                 jsonObject.put("apply", str);
+                 jsonObject.put("import", true);
+                 jsonObject.put("status", "working");
+                 return jsonObject.toJSONString();
+               }
+             }
         """;
-    String className = "ReferenceTestClass4";
+    String className = "ImportTest2";
     try {
+      compiler.addExtraArchive(new File("src/test/resources/fastjson-1.2.83.jar"));
       Class<?> compiledClass = compiler.compile(className, code);
       Assert.assertEquals(compiledClass.getSimpleName(), className);
       Function<String, String> object = (Function<String, String>) compiledClass.getConstructor()
           .newInstance();
-      Assert.assertEquals(object.apply(className), "custom:ReferenceTestClass4");
-    } catch (Exception e) {
+      Assert.assertEquals(object.apply(className), "{\"import\":true,\"apply\":\"ImportTest2\",\"status\":\"working\"}");
+    } catch (Throwable e) {
       e.printStackTrace();
       fail();
     }
