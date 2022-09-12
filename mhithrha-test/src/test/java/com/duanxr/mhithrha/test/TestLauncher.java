@@ -87,6 +87,9 @@ public class TestLauncher {
   }
 
   private void doTest(BunchCompileTest bunchCompileTest) {
+    bunchCompileTest.testBunchCompile();
+    bunchCompileTest.testBunchCompileWithDependency();
+    bunchCompileTest.testBunchCompileWithDependencyLoop();
   }
 
   private void doTest(TheadSafeTest theadSafeTest) {
