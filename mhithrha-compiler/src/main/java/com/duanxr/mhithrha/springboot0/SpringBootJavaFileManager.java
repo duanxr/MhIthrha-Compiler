@@ -16,7 +16,7 @@ import org.slf4j.LoggerFactory;
 public class SpringBootJavaFileManager extends RuntimeJavaFileManager {
 
   public SpringBootJavaFileManager(StandardJavaFileManager fileManager) {
-    super(fileManager,null, null);
+    super(fileManager,null, null, 0);
     try {
       springBootLauncher = new SpringBootLauncher();
       springBootLauncher.launch();

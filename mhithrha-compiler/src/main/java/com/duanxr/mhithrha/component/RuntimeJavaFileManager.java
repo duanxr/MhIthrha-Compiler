@@ -55,10 +55,10 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class RuntimeJavaFileManager implements JavaFileManager {
-
   private static final Set<Location> LOCATIONS = Set.of(SOURCE_PATH, CLASS_PATH, CLASS_OUTPUT,
       MODULE_PATH);
   private final ClassLoader classLoader;
+  private final long compilationTimeout;
   private final Map<String, JavaMemoryClass> compiledClasses = new LinkedHashMap<>();
   private final Map<String, JavaMemoryCode> compiledCodes = new LinkedHashMap<>();
   private final Set<JavaArchive> extraArchives = new HashSet<>();
@@ -69,14 +69,15 @@ public class RuntimeJavaFileManager implements JavaFileManager {
   private final ResourcesLoader resourcesLoader;
 
   public RuntimeJavaFileManager(StandardJavaFileManager fileManager,
-      ClassLoader classLoader, ResourcesLoader resourcesLoader) {
+      ClassLoader classLoader, ResourcesLoader resourcesLoader, long compilationTimeout) {
     this.fileManager = fileManager;
     this.classLoader = classLoader;
     this.resourcesLoader = resourcesLoader;
+    this.compilationTimeout = compilationTimeout;
   }
 
   public ClassLoader getClassLoader(Location location) {
-    return classLoader;// instanceof IntrusiveClassLoader ? classLoader.getParent() : ;
+    return classLoader;
   }
 
   @SuppressWarnings("unchecked")
@@ -253,7 +254,7 @@ public class RuntimeJavaFileManager implements JavaFileManager {
       synchronized (compiledClasses) {
         JavaMemoryClass javaMemoryClass = compiledClasses.get(JavaNameUtil.toJavaName(className));
         if (javaMemoryClass == null) {
-          javaMemoryClass = new JavaMemoryClass(className, 3000);
+          javaMemoryClass = new JavaMemoryClass(className, compilationTimeout);
           compiledClasses.put(javaMemoryClass.getClassName(), javaMemoryClass);
           synchronized (outputClasses) {
             outputClasses.put(javaMemoryClass.getClassName(), javaMemoryClass);

@@ -31,7 +31,7 @@ import lombok.SneakyThrows;
  * @author 段然 2022/8/29
  */
 public class RuntimeCompiler {
-
+  private static final long DEFAULT_COMPILATION_TIMEOUT = 30000L;
   private static final List<String> DEFAULT_OPTIONS = List.of("-g", "-nowarn");
   private static final PrintWriter DEFAULT_WRITER = new PrintWriter(System.err);
 
@@ -48,6 +48,7 @@ public class RuntimeCompiler {
     classLoader =
         classLoader != null ? classLoader : Thread.currentThread().getContextClassLoader();
     charset = charset != null ? charset : StandardCharsets.UTF_8;
+    compilationTimeout = compilationTimeout < 0L ? DEFAULT_COMPILATION_TIMEOUT : compilationTimeout;
     this.configuration = new Configuration(javaCompiler, classLoader, charset, intrusive,
         compilationTimeout);
     this.runtimeClassLoader =
@@ -55,7 +56,7 @@ public class RuntimeCompiler {
     ResourcesLoader resourcesLoader = new ResourcesLoader();//todo if springboot
     this.runtimeJavaFileManager = new RuntimeJavaFileManager(
         javaCompiler.getStandardFileManager(null, null, charset),
-        runtimeClassLoader, resourcesLoader);
+        runtimeClassLoader, resourcesLoader, compilationTimeout);
     this.compilerCore = new CompilerCore(runtimeClassLoader, javaCompiler, runtimeJavaFileManager,
         resourcesLoader);
   }
@@ -149,6 +150,7 @@ public class RuntimeCompiler {
     return compileSetting == null || compileSetting.getWriter() == null ? DEFAULT_WRITER
         : compileSetting.getWriter();
   }
+
   public Class<?> compile(JavaSourceCode sourceCode, JavaCompileSetting compileSetting) {
     return compileSingular(sourceCode, compileSetting);
   }
@@ -175,9 +177,11 @@ public class RuntimeCompiler {
       JavaCompileSetting compileSetting) {
     return compileMultiple(sourceCodes, compileSetting);
   }
+
   public ClassLoader getRuntimeClassLoader() {
     return this.runtimeClassLoader;
   }
+
   public record Configuration(JavaCompiler javaCompiler, ClassLoader classLoader, Charset charset,
                               boolean intrusive, long compilationTimeout) {
 
