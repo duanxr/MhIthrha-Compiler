@@ -74,7 +74,7 @@ public class TestLauncher {
   }
 
   private void doTest(RuntimeCompiler compiler) {
-    doTest(new SimpleTest(compiler));//todo interface abstract
+    doTest(new SimpleTest(compiler));
     doTest(new ReferenceTest(compiler));
     doTest(new JavaLevelTest(compiler));
     doTest(new PackageTest(compiler));

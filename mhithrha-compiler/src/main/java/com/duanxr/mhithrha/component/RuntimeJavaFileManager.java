@@ -179,8 +179,7 @@ public class RuntimeJavaFileManager implements JavaFileManager {
 
   @Override
   public synchronized JavaFileObject getJavaFileForInput(Location location, String className,
-      Kind kind)
-      throws IOException {
+      Kind kind) {
     if (LOCATIONS.contains(location)) {
       List<RuntimeJavaFileObject> list = Collections.synchronizedList(new ArrayList<>());
       if (location == MODULE_PATH) {

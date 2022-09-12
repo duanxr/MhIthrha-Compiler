@@ -92,8 +92,7 @@ public class RuntimeCompiler {
     }
     if (className == null || className.isEmpty()) {
       className = JavaCodeParser.getFullClassName(javaCode);
-      if(Strings.isNullOrEmpty(className))
-      {
+      if (Strings.isNullOrEmpty(className)) {
         throw new IllegalArgumentException("class name is empty, please set class name manually");
       }
     }
@@ -104,7 +103,6 @@ public class RuntimeCompiler {
       optionList = DEFAULT_OPTIONS;
     }
     CompileDiagnosticListener diagnosticListener = new CompileDiagnosticListener();
-    //todo if Strings.isnullorempty (className)
     List<JavaMemoryCode> javaFileObjects = Collections.singletonList(
         new JavaMemoryCode(className, javaCode));
     Map<String, Class<?>> classMap = compilerCore.compile(javaFileObjects, writer,

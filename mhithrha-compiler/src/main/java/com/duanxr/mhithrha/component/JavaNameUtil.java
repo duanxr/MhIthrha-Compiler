@@ -35,8 +35,7 @@ public class JavaNameUtil {
         }
       }
     }
-    String packageName = packageIndex == -1 ? "" : new String(Arrays.copyOf(classNameChars, packageIndex));
-    return packageName;
+    return packageIndex == -1 ? "" : new String(Arrays.copyOf(classNameChars, packageIndex));
   }
 
   public static String toJavaName(String name) {
@@ -46,8 +45,7 @@ public class JavaNameUtil {
         classNameChars[i] = '.';
       }
     }
-    String javaName = new String(classNameChars);
-    return javaName;
+    return new String(classNameChars);
   }
 
   public static String toURI(String name) {
@@ -58,5 +56,13 @@ public class JavaNameUtil {
       }
     }
     return new String(classNameChars);
+  }
+
+  public static String removeSuffix(String name) {
+    int index = name.lastIndexOf('.');
+    if (index == -1) {
+      return name;
+    }
+    return name.substring(0, index);
   }
 }
