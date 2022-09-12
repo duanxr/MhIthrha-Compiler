@@ -1,11 +1,20 @@
 package com.duanxr.mhithrha.component;
 
 import com.duanxr.mhithrha.RuntimeCompilerException;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * @author 段然 2022/9/5
  */
 public class JavaCodeParser {
+
+  private static final String CLASS_NAME_PATTERN_TEMPLATE = "(?<=(\\b)(%s)(\\b))(\\s+[^\\s{]+)(?=[\\s{])";
+  private static final Pattern CLASS_NAME_PATTERN = Pattern.compile(
+      CLASS_NAME_PATTERN_TEMPLATE.formatted(String.join("|",
+          "class", "interface", "enum", "@interface", "record")));
+  private static final Pattern PACKAGE_NAME_PATTERN = Pattern.compile(
+      "(?<=package(\\b))([^;]+)(?=;)");
 
   public static String getFullClassName(String javaCode) {
     String className = getFullClassNameSimple(javaCode);
@@ -20,48 +29,27 @@ public class JavaCodeParser {
         : packageName == null || packageName.isEmpty() ? className : packageName + "." + className;
   }
 
-  private static String findClassName(String javaCode) {
-    try {
-      int index0 = javaCode.indexOf("class ");
-      if (index0 == -1) {
-        return null;
-      }
-      int index1 = findFirst(javaCode, index0 + 6, ' ', '{');
-      if (index1 == -1) {
-        return null;
-      }
-      return javaCode.substring(index0 + 6, index1).trim();
-    } catch (Exception e) {
-      throw new RuntimeCompilerException("can't find class name", e);
-    }
-  }
-
-  private static int findFirst(String javaCode, int fromIndex, char... chars) {
-    int javaCodeLength = javaCode.length();
-    for (int i = fromIndex; i < javaCodeLength; i++) {
-      char c = javaCode.charAt(i);
-      for (char aChar : chars) {
-        if (c == aChar) {
-          return i;
-        }
-      }
-    }
-    return -1;
-  }
-
   private static String findPackageName(String javaCode) {
     try {
-      int index = javaCode.indexOf("package");
-      if (index == -1) {
+      Matcher matcher = PACKAGE_NAME_PATTERN.matcher(javaCode);
+      if (!matcher.find()) {
         return null;
       }
-      int endIndex = javaCode.indexOf(";", index);
-      if (endIndex == -1) {
-        return null;
-      }
-      return javaCode.substring(index + 8, endIndex).trim();
+      return matcher.group().replaceAll("\\s", "");
     } catch (Exception e) {
       throw new RuntimeCompilerException("can't find package name", e);
+    }
+  }
+
+  private static String findClassName(String javaCode) {
+    try {
+      Matcher matcher = CLASS_NAME_PATTERN.matcher(javaCode);
+      if (!matcher.find()) {
+        return null;
+      }
+      return matcher.group().replaceAll("\\s", "");
+    } catch (Exception e) {
+      throw new RuntimeCompilerException("can't find class name", e);
     }
   }
 

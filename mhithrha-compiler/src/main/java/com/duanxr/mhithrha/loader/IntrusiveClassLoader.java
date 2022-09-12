@@ -23,10 +23,8 @@ import sun.misc.Unsafe;
  */
 @Slf4j
 public final class IntrusiveClassLoader extends RuntimeClassLoader {
-
   private final Map<String, byte[]> defineTaskMap = new HashMap<>();
   private final ClassLoader parent;
-
   public IntrusiveClassLoader(ClassLoader parent) {
     super(parent);
     this.parent = parent;
@@ -136,9 +134,7 @@ public final class IntrusiveClassLoader extends RuntimeClassLoader {
   }
 
   private static class LookupDefineClassHelper {
-
     private static final Method[] DEFINE_CLASS_METHODS = getDefineClassMethods();
-
     private static Method[] getDefineClassMethods() {
       try {
         Class<?> methodHandles = Class.forName("java.lang.invoke.MethodHandles");

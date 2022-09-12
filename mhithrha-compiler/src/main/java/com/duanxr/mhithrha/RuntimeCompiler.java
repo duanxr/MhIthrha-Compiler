@@ -11,6 +11,7 @@ import com.duanxr.mhithrha.loader.IntrusiveClassLoader;
 import com.duanxr.mhithrha.loader.RuntimeClassLoader;
 import com.duanxr.mhithrha.loader.StandaloneClassLoader;
 import com.duanxr.mhithrha.resource.JavaMemoryCode;
+import com.google.common.base.Strings;
 import java.io.File;
 import java.io.PrintWriter;
 import java.nio.charset.Charset;
@@ -91,6 +92,10 @@ public class RuntimeCompiler {
     }
     if (className == null || className.isEmpty()) {
       className = JavaCodeParser.getFullClassName(javaCode);
+      if(Strings.isNullOrEmpty(className))
+      {
+        throw new IllegalArgumentException("class name is empty, please set class name manually");
+      }
     }
     if (writer == null) {
       writer = DEFAULT_WRITER;
@@ -99,6 +104,7 @@ public class RuntimeCompiler {
       optionList = DEFAULT_OPTIONS;
     }
     CompileDiagnosticListener diagnosticListener = new CompileDiagnosticListener();
+    //todo if Strings.isnullorempty (className)
     List<JavaMemoryCode> javaFileObjects = Collections.singletonList(
         new JavaMemoryCode(className, javaCode));
     Map<String, Class<?>> classMap = compilerCore.compile(javaFileObjects, writer,

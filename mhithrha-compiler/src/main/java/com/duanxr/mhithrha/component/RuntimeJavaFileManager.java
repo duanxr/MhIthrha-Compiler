@@ -155,6 +155,9 @@ public class RuntimeJavaFileManager implements JavaFileManager {
     if (file instanceof JavaFileArchive javaFileArchive) {
       return javaFileArchive.getClassName();
     }
+    if (file instanceof JavaFileClass javaFileClass) {
+      return javaFileClass.getClassName();
+    }
     return fileManager.inferBinaryName(location, file);
   }
 

@@ -4,6 +4,7 @@ import static org.junit.Assert.fail;
 
 import com.duanxr.mhithrha.RuntimeCompiler;
 import com.duanxr.mhithrha.test.component.TestAnnotation;
+import java.lang.reflect.Modifier;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import lombok.AllArgsConstructor;
@@ -170,4 +171,71 @@ public class SimpleTest {
       fail();
     }
   }
+
+  public void testInterface() {
+    String code = """
+        public interface SimpleTestInterface8{
+         
+        }
+        """;
+    String className = "SimpleTestInterface8";
+    try {
+      Class<?> compiledClass = compiler.compile(code);
+      Assert.assertEquals(compiledClass.getSimpleName(), className);
+      Assert.assertTrue(compiledClass.isInterface());
+    } catch (Exception e) {
+      e.printStackTrace();
+      fail();
+    }
+  }
+
+  public void testAbstractClass() {
+    String code = """
+        public abstract class SimpleTestClass9{
+         
+         public abstract void test();
+         
+        }
+        """;
+    String className = "SimpleTestClass9";
+    try {
+      Class<?> compiledClass = compiler.compile(code);
+      Assert.assertEquals(compiledClass.getSimpleName(), className);
+      Assert.assertTrue(Modifier.isAbstract(compiledClass.getModifiers()));
+    } catch (Exception e) {
+      e.printStackTrace();
+      fail();
+    }
+  }
+
+  public void testNonAsciiClass() {
+    String code = """
+        public class 简单测试类10{
+        }
+        """;
+    String className = "简单测试类10";
+    try {
+      Class<?> compiledClass = compiler.compile(className,code);
+      Assert.assertEquals(compiledClass.getSimpleName(), className);
+    } catch (Exception e) {
+      e.printStackTrace();
+      fail();
+    }
+  }
+
+  public void testNonAsciiClassWithoutName() {
+    String code = """
+        public class 简单测试类11{
+        }
+        """;
+    String className = "简单测试类11";
+    try {
+      Class<?> compiledClass = compiler.compile(code);
+      Assert.assertEquals(compiledClass.getSimpleName(), className);
+    } catch (Exception e) {
+      e.printStackTrace();
+      fail();
+    }
+  }
+
 }

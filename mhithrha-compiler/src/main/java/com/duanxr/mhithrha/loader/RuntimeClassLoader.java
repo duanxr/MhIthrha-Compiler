@@ -26,14 +26,13 @@ public sealed abstract class RuntimeClassLoader extends URLClassLoader permits
   public void addArchive(File file) {
     addURL(file.toURI().toURL());
   }
-
   @Override
   public void close() {
-
   }
 
   @SneakyThrows
   public void closeForReal() {
     super.close();
   }
+
 }

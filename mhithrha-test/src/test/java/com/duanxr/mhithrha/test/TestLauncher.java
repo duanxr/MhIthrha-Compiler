@@ -74,7 +74,7 @@ public class TestLauncher {
   }
 
   private void doTest(RuntimeCompiler compiler) {
-    doTest(new SimpleTest(compiler));
+    doTest(new SimpleTest(compiler));//todo interface abstract
     doTest(new ReferenceTest(compiler));
     doTest(new JavaLevelTest(compiler));
     doTest(new PackageTest(compiler));
@@ -96,6 +96,8 @@ public class TestLauncher {
     packageTest.testPackageClassWithoutName();
     packageTest.testPackageAccessCompiledClass();
     packageTest.testPackageAccessClassFromAnotherClassLoader();
+    packageTest.testNonAsciiPackageClass();
+    packageTest.testNonAsciiPackageClassWithoutName();
   }
 
   private void doTest(ReferenceTest referenceTest) {
@@ -121,5 +123,9 @@ public class TestLauncher {
     simpleTest.testClassWithCatchingException();
     simpleTest.testClassWithCatchingExceptionWithoutName();
     simpleTest.testClassWithAnnotation();
+    simpleTest.testInterface();
+    simpleTest.testAbstractClass();
+    simpleTest.testNonAsciiClass();
+    simpleTest.testNonAsciiClassWithoutName();
   }
 }

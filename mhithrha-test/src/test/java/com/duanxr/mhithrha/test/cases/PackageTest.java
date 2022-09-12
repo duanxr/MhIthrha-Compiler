@@ -21,7 +21,7 @@ public class PackageTest {
 
   public void testPackageClass() {
     String code = """
-        package com.duanxr.mhithrha.test.runtime;
+        package   com.duanxr.mhithrha.test.runtime  ;
         import java.io.ByteArrayInputStream;
         import java.io.InputStream;
         import java.nio.charset.StandardCharsets;
@@ -54,7 +54,9 @@ public class PackageTest {
 
   public void testPackageClassWithoutName() {
     String code = """
-        package com.duanxr.mhithrha.test.runtime;
+        package   com.
+                    duanxr.
+                    mhithrha.test.runtime  ;
         import java.io.ByteArrayInputStream;
         import java.io.InputStream;
         import java.nio.charset.StandardCharsets;
@@ -168,6 +170,76 @@ public class PackageTest {
           .newInstance();
       Assert.assertEquals(object.apply(className1),
           "custom:com.duanxr.mhithrha.test.component.PackageTestClass5");
+    } catch (Exception e) {
+      e.printStackTrace();
+      fail();
+    }
+  }
+
+  public void testNonAsciiPackageClass() {
+    String code = """
+        package   com.duanxr.
+                  mhithrha.test.runtime.
+                    测试包;
+        import java.io.ByteArrayInputStream;
+        import java.io.InputStream;
+        import java.nio.charset.StandardCharsets;
+        import java.util.function.Function;
+        public class 包测试类6 implements Function<String,InputStream>{
+            @Override
+            public InputStream apply(String str) {
+              InputStream stream = new ByteArrayInputStream(str.getBytes(StandardCharsets.UTF_8));
+              return stream;
+            }
+          }
+        """;
+    String className = "com.duanxr.mhithrha.test.runtime.测试包.包测试类6";
+    try {
+      Class<?> compiledClass = compiler.compile(className, code);
+      Assert.assertEquals(compiledClass.getName(), className);
+      Function<String, InputStream> object = (Function<String, InputStream>) compiledClass.getConstructor()
+          .newInstance();
+      InputStream inputStream = object.apply(className);
+      InputStreamReader isReader = new InputStreamReader(inputStream);
+      char[] charArray = new char[inputStream.available()];
+      int read = isReader.read(charArray);
+      String contents = new String(charArray).trim();
+      Assert.assertEquals(className,contents);
+    } catch (Exception e) {
+      e.printStackTrace();
+      fail();
+    }
+  }
+
+  public void testNonAsciiPackageClassWithoutName() {
+    String code = """
+        package   com.duanxr.
+                  mhithrha.test.runtime.
+                    测试包;
+        import java.io.ByteArrayInputStream;
+        import java.io.InputStream;
+        import java.nio.charset.StandardCharsets;
+        import java.util.function.Function;
+        public class 包测试类7 implements Function<String,InputStream>{
+            @Override
+            public InputStream apply(String str) {
+              InputStream stream = new ByteArrayInputStream(str.getBytes(StandardCharsets.UTF_8));
+              return stream;
+            }
+          }
+        """;
+    String className = "com.duanxr.mhithrha.test.runtime.测试包.包测试类7";
+    try {
+      Class<?> compiledClass = compiler.compile(code);
+      Assert.assertEquals(compiledClass.getName(), className);
+      Function<String, InputStream> object = (Function<String, InputStream>) compiledClass.getConstructor()
+          .newInstance();
+      InputStream inputStream = object.apply(className);
+      InputStreamReader isReader = new InputStreamReader(inputStream);
+      char[] charArray = new char[inputStream.available()];
+      int read = isReader.read(charArray);
+      String contents = new String(charArray).trim();
+      Assert.assertEquals(contents, className);
     } catch (Exception e) {
       e.printStackTrace();
       fail();
