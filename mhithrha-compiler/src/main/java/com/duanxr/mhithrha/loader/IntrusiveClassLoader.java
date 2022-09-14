@@ -6,13 +6,9 @@ import com.google.common.base.Strings;
 import java.lang.reflect.AccessibleObject;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
-import java.security.CodeSource;
-import java.security.ProtectionDomain;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
@@ -23,13 +19,64 @@ import sun.misc.Unsafe;
  */
 @Slf4j
 public final class IntrusiveClassLoader extends RuntimeClassLoader {
-  private final Map<String, byte[]> defineTaskMap = new HashMap<>();
+
+  private final Function<String, byte[]> compiledClasses;
   private final ClassLoader parent;
-  public IntrusiveClassLoader(ClassLoader parent) {
+
+  public IntrusiveClassLoader(ClassLoader parent, Function<String, byte[]> compiledClasses) {
     super(parent);
     this.parent = parent;
-    if (!UnsafeDefineClassHelper.support() && !LookupDefineClassHelper.support()) {
+    this.compiledClasses = compiledClasses;
+    if (!UnsafeDefineClassHelper.support()) {
       throw new RuntimeCompilerException("intrusive class loader not supported");
+    }
+  }
+
+  public synchronized Map<String, Class<?>> defineCompiledClasses(List<String> classNames) {
+    synchronized (this) {
+      return classNames.stream()
+          .collect(Collectors.toMap(Functions.identity(), this::defineCompiledClass));
+    }
+  }
+
+  @Override
+  @SneakyThrows
+  public Class<?> defineClass(String name, byte[] bytes) {
+    try {
+      if (!UnsafeDefineClassHelper.support()) {
+        throw new RuntimeCompilerException("intrusive class loader not supported");
+      }
+      return UnsafeDefineClassHelper.defineClass(parent, name, bytes);
+    } catch (Throwable e) {
+      String dependency = findNotFoundClass(e);
+      if (dependency != null) {
+        Class<?> urlClass = super.loadClass(dependency);
+        if (urlClass != null) {
+          resolveParentClass(urlClass);
+          return defineClass(name, bytes);
+        }
+      }
+      throw e;
+    }
+  }
+
+  @SneakyThrows
+  public Class<?> defineCompiledClass(String name) {
+    synchronized (this) {
+      byte[] compiled = compiledClasses.apply(name);
+      if (compiled == null) {
+        return loadClass(name);
+      }
+      try {
+        return defineClass(name, compiled);
+      } catch (Exception e) {
+        String dependency = findNotFoundClass(e);
+        if (dependency == null) {
+          throw e;
+        }
+        defineCompiledClass(dependency);
+        return defineClass(name, compiled);
+      }
     }
   }
 
@@ -38,41 +85,8 @@ public final class IntrusiveClassLoader extends RuntimeClassLoader {
       return parent.loadClass(name);
     } catch (Throwable e) {
       Class<?> clazz = super.loadClass(name);
-      resolveClass0(clazz);
+      resolveParentClass(clazz);
       return parent.loadClass(name);
-    }
-  }
-
-  private final Set<String> findClassSet = new HashSet<>();
-
-  private Class<?> loadParentClass(String name) throws ClassNotFoundException {
-    try {
-      return parent.loadClass(name);
-    } catch (Exception e) {
-      String notFoundClass = findNotFoundClass(e);
-      Class<?> clazz = super.loadClass(notFoundClass);
-      resolveClass0(clazz);
-      return parent.loadClass(name);
-    }
-  }
-
-  @SneakyThrows
-  public Class<?> defineTask(String name) {
-    synchronized (defineTaskMap) {
-      byte[] bytes = defineTaskMap.remove(name);
-      if (bytes == null) {
-        return parent.loadClass(name);
-      }
-      try {
-        return defineClass(name, bytes);
-      } catch (Exception e) {
-        String dependency = findNotFoundClass(e);
-        if (dependency == null) {
-          throw e;
-        }
-        defineTask(dependency);
-        return defineClass(name, bytes);
-      }
     }
   }
 
@@ -86,95 +100,11 @@ public final class IntrusiveClassLoader extends RuntimeClassLoader {
     return findNotFoundClass(e.getCause());
   }
 
-  public Map<String, Class<?>> defineClasses(Map<String, byte[]> classBytes) {
-    Map<String, Class<?>> classes = new HashMap<>(classBytes.size());
-    List<String> classNames = classBytes.keySet().stream().toList();
-    synchronized (defineTaskMap) {
-      defineTaskMap.putAll(classBytes);
-      Map<String, Class<?>> classMap = classNames.stream()
-          .collect(Collectors.toMap(Functions.identity(), this::defineTask));
-      classBytes.keySet().forEach(defineTaskMap::remove);
+  private void resolveParentClass(Class<?> c) {
+    if (!UnsafeDefineClassHelper.support()) {
+      throw new RuntimeCompilerException("intrusive class loader not supported");
     }
-    return classes;
-  }
-
-  @Override
-  public Class<?> defineReloadableClass(String name, byte[] bytes) {
-    return new IsolatedClassLoader(parent).defineClass(name, bytes);
-  }
-
-  @Override
-  protected Class<?> findClass(String name) throws ClassNotFoundException {
-    try {
-      return parent.loadClass(name);
-    } catch (Throwable e) {
-      Class<?> clazz = super.findClass(name);
-      resolveClass0(clazz);
-      return parent.loadClass(name);
-    }
-  }
-
-
-  @Override
-  public Class<?> defineClass(String name, byte[] bytes) {
-    if (UnsafeDefineClassHelper.support()) {
-      return UnsafeDefineClassHelper.defineClass(parent, name, bytes);
-    }
-    //if (LookupDefineClassHelper.support()) {return LookupDefineClassHelper.defineClass(parent, name, bytes);}
-    throw new RuntimeCompilerException("intrusive class loader not supported");
-  }
-
-  private void resolveClass0(Class<?> c) {
-    if (UnsafeDefineClassHelper.support()) {
-      UnsafeDefineClassHelper.resolveClass(parent, c);
-      return;
-    }
-    //if (LookupDefineClassHelper.support()) {return LookupDefineClassHelper.defineClass(parent, name, bytes);}
-    throw new RuntimeCompilerException("intrusive class loader not supported");
-  }
-
-  private static class LookupDefineClassHelper {
-    private static final Method[] DEFINE_CLASS_METHODS = getDefineClassMethods();
-    private static Method[] getDefineClassMethods() {
-      try {
-        Class<?> methodHandles = Class.forName("java.lang.invoke.MethodHandles");
-        Class<?> methodHandle = Class.forName("java.lang.invoke.MethodHandle");
-        Class<?> methodType = Class.forName("java.lang.invoke.MethodType");
-        Class<?> methodHandlesLookup = Class.forName("java.lang.invoke.MethodHandles$Lookup");
-        Method[] methods = new Method[4];
-        methods[0] = methodHandles.getDeclaredMethod("lookup", null);
-        methods[1] = methodType.getDeclaredMethod("methodType", Class.class, Class[].class);
-        methods[2] = methodHandlesLookup.getDeclaredMethod("findVirtual", Class.class, String.class,
-            methodType);
-        methods[3] = methodHandle.getDeclaredMethod("invokeWithArguments", Object[].class);
-        return methods;
-      } catch (Exception e) {
-        log.debug("LookupDefineClassHelper not supported", e);
-      }
-      return null;
-    }
-
-    public static boolean support() {
-      return DEFINE_CLASS_METHODS != null
-          && DEFINE_CLASS_METHODS[0] != null && DEFINE_CLASS_METHODS[1] != null
-          && DEFINE_CLASS_METHODS[2] != null && DEFINE_CLASS_METHODS[3] != null;
-    }
-
-    @SneakyThrows
-    public static Class<?> defineClass(ClassLoader classLoader, String name, byte[] bytes) {
-      if (DEFINE_CLASS_METHODS == null ||
-          DEFINE_CLASS_METHODS[0] == null || DEFINE_CLASS_METHODS[1] == null ||
-          DEFINE_CLASS_METHODS[2] == null || DEFINE_CLASS_METHODS[3] == null) {
-        return null;
-      }
-      Object lookup = DEFINE_CLASS_METHODS[0].invoke(null, null);
-      Object type = DEFINE_CLASS_METHODS[1].invoke(null, Class.class,
-          new Class[]{String.class, byte[].class, int.class, int.class});
-      Object method = DEFINE_CLASS_METHODS[2].invoke(lookup, ClassLoader.class, "defineClass",
-          type);
-      return (Class<?>) DEFINE_CLASS_METHODS[3].invoke(method, classLoader, name, bytes, 0,
-          bytes.length);
-    }
+    UnsafeDefineClassHelper.resolveClass(parent, c);
   }
 
   private static class UnsafeDefineClassHelper {
@@ -187,7 +117,8 @@ public final class IntrusiveClassLoader extends RuntimeClassLoader {
         Field theUnsafe = Unsafe.class.getDeclaredField("theUnsafe");
         theUnsafe.setAccessible(true);
         Unsafe unsafe = (Unsafe) theUnsafe.get(null);
-        Method defineClassMethod = ClassLoader.class.getDeclaredMethod("defineClass", String.class,
+        Method defineClassMethod = ClassLoader.class.getDeclaredMethod("defineClass",
+            String.class,
             byte[].class, int.class, int.class);
         try {
           Field field = AccessibleObject.class.getDeclaredField("override");
@@ -243,14 +174,5 @@ public final class IntrusiveClassLoader extends RuntimeClassLoader {
       }
       RESOLVE_CLASS_METHOD.invoke(classLoader, c);
     }
-  }
-
-  private String defineClassSourceLocation(ProtectionDomain pd) {
-    CodeSource cs = pd.getCodeSource();
-    String source = null;
-    if (cs != null && cs.getLocation() != null) {
-      source = cs.getLocation().toString();
-    }
-    return source;
   }
 }

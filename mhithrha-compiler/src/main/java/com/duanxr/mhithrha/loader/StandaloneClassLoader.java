@@ -1,11 +1,11 @@
 package com.duanxr.mhithrha.loader;
 
 import com.google.common.base.Functions;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.SneakyThrows;
 
@@ -13,27 +13,24 @@ import lombok.SneakyThrows;
  * @author 段然 2022/9/5
  */
 public final class StandaloneClassLoader extends RuntimeClassLoader {
-
-  private final Map<String, byte[]> defineTaskMap = new HashMap<>();
-
-  public StandaloneClassLoader(ClassLoader parent) {
+  private final Set<String> findClassSet = ConcurrentHashMap.newKeySet();
+  private final Function<String, byte[]> compiledClasses;
+  public StandaloneClassLoader(ClassLoader parent, Function<String, byte[]> compiledClasses) {
     super(parent);
+    this.compiledClasses = compiledClasses;
   }
-
-  public Map<String, Class<?>> defineClasses(Map<String, byte[]> classBytes) {
-    List<String> classNames = classBytes.keySet().stream().toList();
-    synchronized (defineTaskMap) {
-      defineTaskMap.putAll(classBytes);
-      Map<String, Class<?>> classes = classNames.stream()
-          .collect(Collectors.toMap(Functions.identity(), this::defineTask));
-      classBytes.keySet().forEach(defineTaskMap::remove);
-      return classes;
+  public synchronized Map<String, Class<?>> defineCompiledClasses(List<String> classNames) {
+    synchronized (this) {
+      return classNames.stream()
+          .collect(Collectors.toMap(Functions.identity(), this::defineCompiledClass));
     }
   }
-
-  @Override
-  public Class<?> defineReloadableClass(String name, byte[] bytes) {
-    return new IsolatedClassLoader(this).defineClass(name, bytes);
+  @SneakyThrows
+  public Class<?> defineCompiledClass(String name) {
+    synchronized (this) {
+      byte[] compiled = compiledClasses.apply(name);
+      return compiled != null ? defineClass(name, compiled) : loadClass(name);
+    }
   }
 
   @Override
@@ -43,13 +40,11 @@ public final class StandaloneClassLoader extends RuntimeClassLoader {
 
   @Override
   protected Class<?> findClass(String name) throws ClassNotFoundException {
-    synchronized (defineTaskMap) {
-      byte[] bytes = defineTaskMap.remove(name);
-      if (bytes != null) {
-        return defineClass(name, bytes);
+    synchronized (this) {
+      byte[] compiled = compiledClasses.apply(name);
+      if (compiled != null) {
+        return defineClass(name, compiled);
       }
-    }
-    synchronized (findClassSet) {
       if (!findClassSet.add(name)) {
         throw new ClassNotFoundException(name);
       }
@@ -58,16 +53,6 @@ public final class StandaloneClassLoader extends RuntimeClassLoader {
       } finally {
         findClassSet.remove(name);
       }
-    }
-  }
-
-  private final Set<String> findClassSet = new HashSet<>();
-
-  @SneakyThrows
-  public Class<?> defineTask(String name) {
-    synchronized (defineTaskMap) {
-      byte[] bytes = defineTaskMap.remove(name);
-      return bytes != null ? defineClass(name, bytes) : loadClass(name);
     }
   }
 }

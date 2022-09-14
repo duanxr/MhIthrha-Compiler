@@ -12,6 +12,7 @@ import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import javax.tools.JavaFileObject.Kind;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
@@ -22,37 +23,25 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @SuppressWarnings("resource")
 public class ResourcesLoader {
-
   private static final LoadingCache<File, JavaArchive> ARCHIVE_CACHE = Caffeine.newBuilder()
-      .removalListener(ResourcesLoader::closeJavaArchive).build(ResourcesLoader::loadJavaArchive);
+      .removalListener(ResourcesLoader::closeJavaArchive).expireAfterAccess(10, TimeUnit.MINUTES)
+      .build(ResourcesLoader::loadJavaArchive);
   private final Charset charset;
-
   public ResourcesLoader() {
     this.charset = StandardCharsets.UTF_8;
   }
-
   public ResourcesLoader(Charset charset) {
     this.charset = charset;
   }
-
   private static void closeJavaArchive(File file, JavaArchive javaArchive,
       RemovalCause cause) {
     if (javaArchive != null) {
       javaArchive.close();
     }
   }
-
   @SneakyThrows
   public static JavaArchive loadJavaArchive(File file) {
-      return new JavaArchive(file);
-  }
-
-  private String getExtension(String name) {
-    int index = name.lastIndexOf('.');
-    if (index == -1) {
-      return "";
-    }
-    return name.substring(index);
+    return new JavaArchive(file);
   }
 
   private Kind getKind(String extension) {
@@ -64,12 +53,6 @@ public class ResourcesLoader {
       return Kind.HTML;
     }
     return Kind.OTHER;
-  }
-
-  private boolean isArchive(File file) {
-    String extension = getExtension(file.getName());
-    return extension.equalsIgnoreCase(".jar") ||
-        extension.equalsIgnoreCase(".zip");
   }
 
   public RuntimeJavaFileObject loadJavaFile(File file, String className, Kind kind) {
@@ -90,7 +73,20 @@ public class ResourcesLoader {
     return null;
   }
 
-  //todo make sure thread safe!
+  private boolean isArchive(File file) {
+    String extension = getExtension(file.getName());
+    return extension.equalsIgnoreCase(".jar") ||
+        extension.equalsIgnoreCase(".zip");
+  }
+
+  private String getExtension(String name) {
+    int index = name.lastIndexOf('.');
+    if (index == -1) {
+      return "";
+    }
+    return name.substring(index);
+  }
+
   public void loadJavaFiles(File file, String normalizedPackageName,
       Set<Kind> kinds, boolean recurse, List<RuntimeJavaFileObject> collector) {
     if (isArchive(file)) {

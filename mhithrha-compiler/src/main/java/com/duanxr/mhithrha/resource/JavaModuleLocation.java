@@ -14,7 +14,7 @@ import lombok.Getter;
 /**
  * @author 段然 2022/9/7
  */
-@EqualsAndHashCode
+@EqualsAndHashCode(of = {"moduleName", "file"})
 public class JavaModuleLocation implements Location {
   @Getter
   private final String moduleName;
@@ -28,21 +28,26 @@ public class JavaModuleLocation implements Location {
     this.reference = module.reference();
     this.file = gerReferenceFile();
   }
+
   @Override
   public String getName() {
     return MODULE_PATH.getName() + '[' + moduleName + ']';
   }
+
   @Override
   public boolean isOutputLocation() {
     return false;
   }
+
   @Override
   public boolean isModuleOrientedLocation() {
     return true;
   }
+
   public boolean notEmpty() {
     return reference != null && reference.location().isPresent();
   }
+
   public boolean notJrt() {
     if (reference == null) {
       return false;

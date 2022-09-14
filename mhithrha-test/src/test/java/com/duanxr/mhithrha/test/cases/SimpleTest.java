@@ -17,9 +17,7 @@ import org.junit.Assert;
 @AllArgsConstructor
 @SuppressWarnings("unchecked")
 public class SimpleTest {
-
   private RuntimeCompiler compiler;
-
   public void testClass() {
     String code = """
         public class SimpleTestClass1{
@@ -34,7 +32,6 @@ public class SimpleTest {
       fail();
     }
   }
-
   public void testClassWithoutName() {
     String code = """
         public class SimpleTestClass2{
@@ -49,7 +46,6 @@ public class SimpleTest {
       fail();
     }
   }
-
   public void testClassWithInterface() {
     String code = """
         public class SimpleTestClass3 implements java.util.function.Supplier<String>{

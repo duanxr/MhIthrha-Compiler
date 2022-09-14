@@ -2,6 +2,7 @@ package com.duanxr.mhithrha;
 
 
 import com.duanxr.mhithrha.component.CompileDiagnosticListener;
+import com.duanxr.mhithrha.component.CompiledClassConverter;
 import com.duanxr.mhithrha.component.CompilerCore;
 import com.duanxr.mhithrha.component.JavaCodeParser;
 import com.duanxr.mhithrha.component.JavaCompilerFactory;
@@ -31,6 +32,7 @@ import lombok.SneakyThrows;
  * @author 段然 2022/8/29
  */
 public class RuntimeCompiler {
+
   private static final long DEFAULT_COMPILATION_TIMEOUT = 30000L;
   private static final List<String> DEFAULT_OPTIONS = List.of("-g", "-nowarn");
   private static final PrintWriter DEFAULT_WRITER = new PrintWriter(System.err);
@@ -51,12 +53,15 @@ public class RuntimeCompiler {
     compilationTimeout = compilationTimeout < 0L ? DEFAULT_COMPILATION_TIMEOUT : compilationTimeout;
     this.configuration = new Configuration(javaCompiler, classLoader, charset, intrusive,
         compilationTimeout);
+    CompiledClassConverter compiledClassConverter = new CompiledClassConverter();
     this.runtimeClassLoader =
-        intrusive ? new IntrusiveClassLoader(classLoader) : new StandaloneClassLoader(classLoader);
+        intrusive ? new IntrusiveClassLoader(classLoader, compiledClassConverter)
+            : new StandaloneClassLoader(classLoader, compiledClassConverter);
     ResourcesLoader resourcesLoader = new ResourcesLoader();//todo if springboot
     this.runtimeJavaFileManager = new RuntimeJavaFileManager(
         javaCompiler.getStandardFileManager(null, null, charset),
         runtimeClassLoader, resourcesLoader, compilationTimeout);
+    compiledClassConverter.setFunction(runtimeJavaFileManager::getCompiledClass);
     this.compilerCore = new CompilerCore(runtimeClassLoader, javaCompiler, runtimeJavaFileManager,
         resourcesLoader);
   }
@@ -101,7 +106,7 @@ public class RuntimeCompiler {
       throw new RuntimeCompilerException(diagnosticListener.getError());
     }
     Class<?> clazz = classMap.get(className);
-    return clazz == null ? compilerCore.load(className) : clazz;
+    return clazz == null ? runtimeClassLoader.loadClass(className) : clazz;
   }
 
   public Class<?> compile(JavaSourceCode sourceCode) {

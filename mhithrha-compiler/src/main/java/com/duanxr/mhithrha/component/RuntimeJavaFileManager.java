@@ -35,16 +35,17 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.Iterator;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.function.Function;
+import java.util.stream.Stream;
 import javax.tools.FileObject;
 import javax.tools.JavaFileManager;
 import javax.tools.JavaFileObject;
@@ -55,17 +56,24 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class RuntimeJavaFileManager implements JavaFileManager {
+
   private static final Set<Location> LOCATIONS = Set.of(SOURCE_PATH, CLASS_PATH, CLASS_OUTPUT,
       MODULE_PATH);
   private final ClassLoader classLoader;
   private final long compilationTimeout;
-  private final Map<String, JavaMemoryClass> compiledClasses = new LinkedHashMap<>();
-  private final Map<String, JavaMemoryCode> compiledCodes = new LinkedHashMap<>();
-  private final Set<JavaArchive> extraArchives = new HashSet<>();
-  private final Map<String, JavaFileClass> extraClasses = new LinkedHashMap<>();
+
+  private final ReadWriteLock compiledClassConsumeLock = new ReentrantReadWriteLock();
+  private final Map<String, JavaMemoryClass> compilingClasses = new ConcurrentHashMap<>();
+  private final Map<String, JavaMemoryClass> compiledClasses = new ConcurrentHashMap<>();
+  private final Map<String, JavaMemoryCode> compiledCodes = new ConcurrentHashMap<>();
+  private final Set<JavaArchive> extraArchives = ConcurrentHashMap.newKeySet();
+  private final Map<String, JavaFileClass> extraClasses = new ConcurrentHashMap<>();
   private final StandardJavaFileManager fileManager;
-  private final Set<JavaModuleLocation> moduleLocations = new LinkedHashSet<>();
-  private final Map<String, JavaMemoryClass> outputClasses = new LinkedHashMap<>();
+  private final Set<JavaModuleLocation> moduleLocations = ConcurrentHashMap.newKeySet();
+
+  @SuppressWarnings("unchecked")
+  private final List<Set<Location>> moduleLocationList = Collections.singletonList(
+      (Set<Location>) (Set<? extends Location>) moduleLocations);
   private final ResourcesLoader resourcesLoader;
 
   public RuntimeJavaFileManager(StandardJavaFileManager fileManager,
@@ -95,24 +103,35 @@ public class RuntimeJavaFileManager implements JavaFileManager {
       List<RuntimeJavaFileObject> runtimeList = new ArrayList<>();
       List<RuntimeJavaFileObject> synchronizedList = Collections.synchronizedList(runtimeList);
       if (location == MODULE_PATH) {
-        moduleLocations.parallelStream().map(JavaModuleLocation::getFile)
+        moduleLocations.stream().map(JavaModuleLocation::getFile)
             .forEach(file -> resourcesLoader.loadJavaFiles(
                 file, uri, kinds, recurse, synchronizedList));
       } else if (location == CLASS_OUTPUT) {
-        compiledClasses.values().parallelStream()
-            .filter(javaMemoryClass ->
-                javaMemoryClass.inPackage(javaPackageName))
-            .forEach(synchronizedList::add);
+        compiledClassConsumeLock.readLock().lock();
+        try {
+          Stream.of(compilingClasses.values().stream(),
+                  compiledClasses.values().stream())
+              .flatMap(Function.identity())
+              .filter(javaMemoryClass -> javaMemoryClass.inPackage(javaPackageName))
+              .forEach(synchronizedList::add);
+        } finally {
+          compiledClassConsumeLock.readLock().unlock();
+        }
       } else if (location == SOURCE_PATH) {
         if (kinds.contains(Kind.CLASS)) {
-          compiledClasses.values().parallelStream()
-              .filter(javaMemoryClass ->
-                  recurse ? javaMemoryClass.inPackages(javaPackageName)
-                      : javaMemoryClass.inPackage(javaPackageName))
-              .forEach(synchronizedList::add);
+          compiledClassConsumeLock.readLock().lock();
+          try {
+            compiledClasses.values().stream()
+                .filter(javaMemoryClass ->
+                    recurse ? javaMemoryClass.inPackages(javaPackageName)
+                        : javaMemoryClass.inPackage(javaPackageName))
+                .forEach(synchronizedList::add);
+          } finally {
+            compiledClassConsumeLock.readLock().unlock();
+          }
         }
         if (kinds.contains(Kind.SOURCE)) {
-          compiledCodes.values().parallelStream()
+          compiledCodes.values().stream()
               .filter(javaMemoryCode ->
                   recurse ? javaMemoryCode.inPackages(javaPackageName)
                       : javaMemoryCode.inPackage(javaPackageName))
@@ -120,15 +139,20 @@ public class RuntimeJavaFileManager implements JavaFileManager {
         }
       } else if (location == CLASS_PATH) {
         if (kinds.contains(Kind.CLASS)) {
-          compiledClasses.values().parallelStream()
-              .filter(javaMemoryClass ->
-                  recurse ? javaMemoryClass.inPackages(javaPackageName)
-                      : javaMemoryClass.inPackage(javaPackageName))
-              .forEach(synchronizedList::add);
-          extraArchives.parallelStream().map(JavaArchive::getFile)
+          compiledClassConsumeLock.readLock().lock();
+          try {
+            compiledClasses.values().stream()
+                .filter(javaMemoryClass ->
+                    recurse ? javaMemoryClass.inPackages(javaPackageName)
+                        : javaMemoryClass.inPackage(javaPackageName))
+                .forEach(synchronizedList::add);
+          } finally {
+            compiledClassConsumeLock.readLock().unlock();
+          }
+          extraArchives.stream().map(JavaArchive::getFile)
               .forEach(file -> resourcesLoader.loadJavaFiles(file, uri, kinds, recurse,
                   synchronizedList));
-          extraClasses.values().parallelStream()
+          extraClasses.values().stream()
               .filter(javaFileClass ->
                   recurse ? javaFileClass.inPackages(javaPackageName)
                       : javaFileClass.inPackage(javaPackageName))
@@ -184,7 +208,7 @@ public class RuntimeJavaFileManager implements JavaFileManager {
     if (LOCATIONS.contains(location)) {
       List<RuntimeJavaFileObject> list = Collections.synchronizedList(new ArrayList<>());
       if (location == MODULE_PATH) {
-        RuntimeJavaFileObject javaFileObject = moduleLocations.parallelStream()
+        RuntimeJavaFileObject javaFileObject = moduleLocations.stream()
             .map(JavaModuleLocation::getFile)
             .map(file -> resourcesLoader.loadJavaFile(file, className, kind))
             .filter(Objects::nonNull)
@@ -195,9 +219,14 @@ public class RuntimeJavaFileManager implements JavaFileManager {
       } else {
         String javaClassName = JavaNameUtil.toJavaName(className);
         if (location == CLASS_OUTPUT && kind == Kind.CLASS) {
-          JavaMemoryClass javaMemoryClass = compiledClasses.get(javaClassName);
-          if (javaMemoryClass != null) {
-            return javaMemoryClass;
+          compiledClassConsumeLock.readLock().lock();
+          try {
+            JavaMemoryClass javaMemoryClass = compiledClasses.get(javaClassName);
+            if (javaMemoryClass != null) {
+              return javaMemoryClass;
+            }
+          } finally {
+            compiledClassConsumeLock.readLock().unlock();
           }
         } else if (location == SOURCE_PATH) {
           if (kind == Kind.SOURCE) {
@@ -207,28 +236,38 @@ public class RuntimeJavaFileManager implements JavaFileManager {
             }
           }
           if (kind == Kind.CLASS) {
-            JavaMemoryClass javaMemoryClass = compiledClasses.get(javaClassName);
-            if (javaMemoryClass != null) {
-              return javaMemoryClass;
+            compiledClassConsumeLock.readLock().lock();
+            try {
+              JavaMemoryClass javaMemoryClass = compiledClasses.get(javaClassName);
+              if (javaMemoryClass != null) {
+                return javaMemoryClass;
+              }
+            } finally {
+              compiledClassConsumeLock.readLock().unlock();
             }
           }
         } else if (location == CLASS_PATH) {
           if (kind == Kind.CLASS) {
-            Optional<JavaMemoryClass> memoryClass = compiledClasses.values().parallelStream()
-                .filter(javaMemoryClass ->
-                    javaMemoryClass.getClassName().equals(javaClassName))
-                .findAny();
-            if (memoryClass.isPresent()) {
-              return memoryClass.get();
+            compiledClassConsumeLock.readLock().lock();
+            try {
+              Optional<JavaMemoryClass> memoryClass = compiledClasses.values().stream()
+                  .filter(javaMemoryClass ->
+                      javaMemoryClass.getClassName().equals(javaClassName))
+                  .findAny();
+              if (memoryClass.isPresent()) {
+                return memoryClass.get();
+              }
+            } finally {
+              compiledClassConsumeLock.readLock().unlock();
             }
-            Optional<JavaFileClass> extraClass = extraClasses.values().parallelStream()
+            Optional<JavaFileClass> extraClass = extraClasses.values().stream()
                 .filter(javaMemoryClass ->
                     javaMemoryClass.getClassName().equals(javaClassName))
                 .findAny();
             if (extraClass.isPresent()) {
               return extraClass.get();
             }
-            Optional<RuntimeJavaFileObject> extraArchiveClass = extraArchives.parallelStream()
+            Optional<RuntimeJavaFileObject> extraArchiveClass = extraArchives.stream()
                 .map(JavaArchive::getFile)
                 .map(file -> resourcesLoader.loadJavaFile(file, javaClassName, kind))
                 .filter(Objects::nonNull)
@@ -251,16 +290,33 @@ public class RuntimeJavaFileManager implements JavaFileManager {
   public JavaFileObject getJavaFileForOutput(Location location, final String className, Kind kind,
       FileObject sibling) {
     if (location == CLASS_OUTPUT && kind == Kind.CLASS) {
-      synchronized (compiledClasses) {
-        JavaMemoryClass javaMemoryClass = compiledClasses.get(JavaNameUtil.toJavaName(className));
+      String javaName = JavaNameUtil.toJavaName(className);
+      compiledClassConsumeLock.readLock().lock();
+      JavaMemoryClass javaMemoryClass = compiledClasses.get(javaName);
+      if (javaMemoryClass == null) {
+        javaMemoryClass = compilingClasses.get(javaName);
         if (javaMemoryClass == null) {
-          javaMemoryClass = new JavaMemoryClass(className, compilationTimeout);
-          compiledClasses.put(javaMemoryClass.getClassName(), javaMemoryClass);
-          synchronized (outputClasses) {
-            outputClasses.put(javaMemoryClass.getClassName(), javaMemoryClass);
+          compiledClassConsumeLock.readLock().unlock();
+          compiledClassConsumeLock.writeLock().lock();
+          try {
+            javaMemoryClass = compiledClasses.get(javaName);
+            if (javaMemoryClass == null) {
+              javaMemoryClass = compilingClasses.get(javaName);
+              if (javaMemoryClass == null) {
+                javaMemoryClass = new JavaMemoryClass(className, compilationTimeout);
+                compilingClasses.put(javaMemoryClass.getClassName(), javaMemoryClass);
+              }
+            }
+            compiledClassConsumeLock.readLock().lock();
+          } finally {
+            compiledClassConsumeLock.writeLock().unlock();
           }
         }
+      }
+      try {
         return javaMemoryClass;
+      } finally {
+        compiledClassConsumeLock.readLock().unlock();
       }
     }
     return null;
@@ -288,87 +344,66 @@ public class RuntimeJavaFileManager implements JavaFileManager {
   }
 
   public synchronized String inferModuleName(final Location location) throws IOException {
-    if (location instanceof JavaModuleLocation javaModuleLocation) {
-      return javaModuleLocation.getModuleName();
-    }
-    return fileManager.inferModuleName(location);
+    return location instanceof JavaModuleLocation javaModuleLocation
+        ? javaModuleLocation.getModuleName() : fileManager.inferModuleName(location);
   }
 
   public synchronized Iterable<Set<Location>> listLocationsForModules(final Location location)
       throws IOException {
-    if (location == MODULE_PATH) {
-      return Collections.singletonList(new HashSet<>(moduleLocations));
-    }
-    return fileManager.listLocationsForModules(location);
+    return location == MODULE_PATH ? moduleLocationList
+        : fileManager.listLocationsForModules(location);
   }
 
   @Override
-  public boolean contains(Location location, FileObject fo) throws IOException {
-    if (fo instanceof RuntimeJavaFileObject) {
-      return true;
-    }
-    return fileManager.contains(location, fo);
+  public boolean contains(Location location, FileObject fileObject) throws IOException {
+    return fileObject instanceof RuntimeJavaFileObject || fileManager.contains(location,
+        fileObject);
   }
-
 
   @Override
   public int isSupportedOption(String option) {
     return fileManager.isSupportedOption(option);
   }
 
-  public Map<String, JavaMemoryClass> getCompiledClasses() {
-    LinkedHashMap<String, JavaMemoryClass> map = new LinkedHashMap<>();
-    synchronized (outputClasses) {
-      for (Entry<String, JavaMemoryClass> entry : outputClasses.entrySet()) {
-        map.put(entry.getValue().getClassName(), entry.getValue());
+  public JavaMemoryClass getCompiledClass(String className) {
+    compiledClassConsumeLock.writeLock().lock();
+    try {
+      JavaMemoryClass compiledClass = compilingClasses.get(className);
+      if (compiledClass == null) {
+        return null;
       }
-      outputClasses.clear();
+      compiledClasses.put(className, compiledClass);
+      compilingClasses.remove(className);
+      return compiledClass;
+    } finally {
+      compiledClassConsumeLock.writeLock().unlock();
     }
-    return map;
   }
-
 
   public void addModule(Module module) {
     if (module.isNamed()) {
-      List<JavaModuleLocation> locations = module.getLayer().configuration().modules().stream()
-          .map(JavaModuleLocation::new).filter(JavaModuleLocation::notJrt)
-          .filter(JavaModuleLocation::isExist)
-          .toList();
-      synchronized (moduleLocations) {
-        moduleLocations.addAll(locations);
-      }
+      module.getLayer().configuration().modules().stream()
+          .filter(Objects::nonNull).map(JavaModuleLocation::new).filter(JavaModuleLocation::notJrt)
+          .filter(JavaModuleLocation::isExist).forEach(moduleLocations::add);
     }
   }
 
   public void addCompileCode(List<JavaMemoryCode> javaMemoryCodes) {
-    synchronized (compiledCodes) {
-      for (JavaMemoryCode javaMemoryCode : javaMemoryCodes) {
-        compiledCodes.put(javaMemoryCode.getClassName(), javaMemoryCode);
-      }
+    for (JavaMemoryCode javaMemoryCode : javaMemoryCodes) {
+      compiledCodes.put(javaMemoryCode.getClassName(), javaMemoryCode);
     }
   }
 
   @SneakyThrows
   public void addExtraArchive(File file) {
-    if (!file.exists()) {
-      throw new IOException("file not found: " + file);
-    }
     JavaArchive javaArchive = ResourcesLoader.loadJavaArchive(file);
-    synchronized (extraArchives) {
-      extraArchives.add(javaArchive);
-    }
+    extraArchives.add(javaArchive);
   }
 
   @SneakyThrows
   public void addExtraClass(String name, File file) {
-    if (!file.exists()) {
-      throw new IOException("file not found: " + file);
-    }
     JavaFileClass javaFileClass = new JavaFileClass(name, file);
-    synchronized (extraClasses) {
-      extraClasses.put(javaFileClass.getClassName(), javaFileClass);
-    }
+    extraClasses.put(javaFileClass.getClassName(), javaFileClass);
   }
-
 
 }

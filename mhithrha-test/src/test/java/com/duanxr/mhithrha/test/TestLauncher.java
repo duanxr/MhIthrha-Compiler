@@ -27,8 +27,8 @@ public class TestLauncher {
   @Test
   @SneakyThrows
   public void testWithJdkCompiler() {
-    testCustomClassLoader(Builder::withJdkCompiler);
-    testDefaultClassLoader(Builder::withJdkCompiler);
+    testWithCustomClassLoader(Builder::withJdkCompiler);
+    testWithDefaultClassLoader(Builder::withJdkCompiler);
   }
 
   /**
@@ -38,8 +38,8 @@ public class TestLauncher {
   @Test
   @SneakyThrows
   public void testWithJavacCompiler() {
-    testCustomClassLoader(Builder::withJavacCompiler);
-    testDefaultClassLoader(Builder::withJavacCompiler);
+    testWithCustomClassLoader(Builder::withJavacCompiler);
+    testWithDefaultClassLoader(Builder::withJavacCompiler);
   }
 
   /**
@@ -48,29 +48,29 @@ public class TestLauncher {
   @Test
   @SneakyThrows
   public void testWithEclipseCompiler() {
-    testCustomClassLoader(Builder::withEclipseCompiler);
-    testDefaultClassLoader(Builder::withEclipseCompiler);
+    testWithCustomClassLoader(Builder::withEclipseCompiler);
+    testWithDefaultClassLoader(Builder::withEclipseCompiler);
   }
 
-  private void testDefaultClassLoader(Function<Builder, RuntimeCompiler> compilerBuildFunction) {
-    testStandalone(compilerBuildFunction, Thread.currentThread().getContextClassLoader());
-    testIntrusive(compilerBuildFunction, Thread.currentThread().getContextClassLoader());
+  private void testWithDefaultClassLoader(Function<Builder, RuntimeCompiler> compilerBuildFunction) {
+    testStandaloneMode(compilerBuildFunction, Thread.currentThread().getContextClassLoader());
+    testIntrusiveMode(compilerBuildFunction, Thread.currentThread().getContextClassLoader());
   }
 
-  private void testCustomClassLoader(Function<Builder, RuntimeCompiler> compilerBuildFunction) {
-    testStandalone(compilerBuildFunction, new ClassLoader() {
+  private void testWithCustomClassLoader(Function<Builder, RuntimeCompiler> compilerBuildFunction) {
+    testStandaloneMode(compilerBuildFunction, new ClassLoader() {
     });
-    testIntrusive(compilerBuildFunction, new ClassLoader() {
+    testIntrusiveMode(compilerBuildFunction, new ClassLoader() {
     });
   }
 
-  public void testStandalone(Function<Builder, RuntimeCompiler> compilerBuildFunction,
+  public void testStandaloneMode(Function<Builder, RuntimeCompiler> compilerBuildFunction,
       ClassLoader classLoader) {
     doTest(compilerBuildFunction.apply(
         RuntimeCompiler.builder().withClassLoader(classLoader).intrusive(false)));
   }
 
-  public void testIntrusive(Function<Builder, RuntimeCompiler> compilerBuildFunction,
+  public void testIntrusiveMode(Function<Builder, RuntimeCompiler> compilerBuildFunction,
       ClassLoader classLoader) {
     //doTest(compilerBuildFunction.apply(RuntimeCompiler.builder().withClassLoader(classLoader).intrusive(true)));
   }
@@ -93,6 +93,8 @@ public class TestLauncher {
   }
 
   private void doTest(TheadSafeTest theadSafeTest) {
+    theadSafeTest.testConcurrencySafe0();
+    theadSafeTest.testConcurrencySafe0();
   }
 
   private void doTest(OtherTest otherTest) {
