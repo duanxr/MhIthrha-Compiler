@@ -93,8 +93,8 @@ public class TestLauncher {
   }
 
   private void doTest(TheadSafeTest theadSafeTest) {
-    theadSafeTest.testConcurrencySafe0();
-    theadSafeTest.testConcurrencySafe0();
+    theadSafeTest.testSimpleConcurrencySafe();
+    theadSafeTest.testSimpleConcurrencySafe();
   }
 
   private void doTest(OtherTest otherTest) {

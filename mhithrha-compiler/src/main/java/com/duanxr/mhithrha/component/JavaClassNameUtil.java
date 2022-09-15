@@ -7,7 +7,7 @@ import lombok.experimental.UtilityClass;
  * @author 段然 2022/9/7
  */
 @UtilityClass
-public class JavaNameUtil {
+public class JavaClassNameUtil {
 
   //including sub package
   public static boolean inPackages(String packageName, String targetPackageName) {

@@ -1,13 +1,18 @@
 package com.duanxr.mhithrha.loader;
 
 import com.duanxr.mhithrha.RuntimeCompilerException;
+import com.duanxr.mhithrha.component.CompiledClassSupplier;
 import com.google.common.base.Functions;
 import com.google.common.base.Strings;
 import java.lang.reflect.AccessibleObject;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.SneakyThrows;
@@ -20,19 +25,45 @@ import sun.misc.Unsafe;
 @Slf4j
 public final class IntrusiveClassLoader extends RuntimeClassLoader {
 
-  private final Function<String, byte[]> compiledClasses;
+  private final CompiledClassSupplier compiledClassSupplier;
   private final ClassLoader parent;
-
-  public IntrusiveClassLoader(ClassLoader parent, Function<String, byte[]> compiledClasses) {
+  @SneakyThrows
+  private void hijackClassLoader(ClassLoader classLoader) {
+    Field field = classLoader.getClass().getDeclaredField("parent");
+    Object parent = field.get(classLoader);
+    Object dynamicClassLoaderProxy = createDynamicClassLoaderProxy(parent);
+    field.set(classLoader, dynamicClassLoaderProxy);
+  }
+  private Class<?>[] getInterfaces(Class<?> clazz) {
+    if (!clazz.isInterface()) {
+      return clazz.getInterfaces();
+    }
+    Class<?>[] interfaces = clazz.getInterfaces();
+    Class<?>[] interfacesWithItself = new Class[interfaces.length + 1];
+    System.arraycopy(interfaces, 0, interfacesWithItself, 0, interfaces.length);
+    interfacesWithItself[interfaces.length] = clazz;
+    return interfacesWithItself;
+  }
+  @SneakyThrows
+  private Object createDynamicClassLoaderProxy(Object classLoader) {
+    DynamicInvocationHandler dynamicInvocationHandler = new DynamicInvocationHandler(classLoader,
+        this);
+    dynamicInvocationHandler.getProxyMethods()
+        .add(ClassLoader.class.getDeclaredMethod("findClass", String.class));
+    return Proxy.newProxyInstance(classLoader.getClass().getClassLoader(),
+        getInterfaces(classLoader.getClass()), dynamicInvocationHandler);
+  }
+  public IntrusiveClassLoader(ClassLoader parent, CompiledClassSupplier compiledClasses) {
     super(parent);
     this.parent = parent;
-    this.compiledClasses = compiledClasses;
-    if (!UnsafeDefineClassHelper.support()) {
+    if (UnsafeDefineClassHelper.notSupport()) {
       throw new RuntimeCompilerException("intrusive class loader not supported");
     }
+    hijackClassLoader(parent);
+    compiledClassSupplier = null;
   }
 
-  public synchronized Map<String, Class<?>> defineCompiledClasses(List<String> classNames) {
+  public synchronized Map<String, Class<?>> defineCompiledClass(List<String> classNames) {
     synchronized (this) {
       return classNames.stream()
           .collect(Collectors.toMap(Functions.identity(), this::defineCompiledClass));
@@ -42,28 +73,40 @@ public final class IntrusiveClassLoader extends RuntimeClassLoader {
   @Override
   @SneakyThrows
   public Class<?> defineClass(String name, byte[] bytes) {
-    try {
-      if (!UnsafeDefineClassHelper.support()) {
-        throw new RuntimeCompilerException("intrusive class loader not supported");
+    if (UnsafeDefineClassHelper.notSupport()) {
+      throw new RuntimeCompilerException("intrusive class loader not supported");
+    }
+    return UnsafeDefineClassHelper.defineClass(parent, name, bytes);
+  }
+
+  @Override
+  public Map<String, Class<?>> defineCompiledClass(Collection<String> compiledClassNames) {
+    return null;
+  }
+
+  private Set<String> findClassSet = ConcurrentHashMap.newKeySet();
+  @Override
+  protected Class<?> findClass(String name) throws ClassNotFoundException {
+    synchronized (this) {
+      byte[] compiled = compiledClassSupplier.getCompiledClass(name);
+      if (compiled != null) {
+        return defineClass(name, compiled);
       }
-      return UnsafeDefineClassHelper.defineClass(parent, name, bytes);
-    } catch (Throwable e) {
-      String dependency = findNotFoundClass(e);
-      if (dependency != null) {
-        Class<?> urlClass = super.loadClass(dependency);
-        if (urlClass != null) {
-          resolveParentClass(urlClass);
-          return defineClass(name, bytes);
-        }
+      if (!findClassSet.add(name)) {
+        throw new ClassNotFoundException(name);
       }
-      throw e;
+      try {
+        return super.findClass(name);
+      } finally {
+        findClassSet.remove(name);
+      }
     }
   }
 
   @SneakyThrows
   public Class<?> defineCompiledClass(String name) {
     synchronized (this) {
-      byte[] compiled = compiledClasses.apply(name);
+      byte[] compiled = compiledClassSupplier.getCompiledClass(name);
       if (compiled == null) {
         return loadClass(name);
       }
@@ -81,13 +124,7 @@ public final class IntrusiveClassLoader extends RuntimeClassLoader {
   }
 
   public Class<?> loadClass(String name) throws ClassNotFoundException {
-    try {
-      return parent.loadClass(name);
-    } catch (Throwable e) {
-      Class<?> clazz = super.loadClass(name);
-      resolveParentClass(clazz);
-      return parent.loadClass(name);
-    }
+    return parent.loadClass(name);
   }
 
   private String findNotFoundClass(Throwable e) {
@@ -101,7 +138,7 @@ public final class IntrusiveClassLoader extends RuntimeClassLoader {
   }
 
   private void resolveParentClass(Class<?> c) {
-    if (!UnsafeDefineClassHelper.support()) {
+    if (UnsafeDefineClassHelper.notSupport()) {
       throw new RuntimeCompilerException("intrusive class loader not supported");
     }
     UnsafeDefineClassHelper.resolveClass(parent, c);
@@ -155,8 +192,8 @@ public final class IntrusiveClassLoader extends RuntimeClassLoader {
       return null;
     }
 
-    public static boolean support() {
-      return DEFINE_CLASS_METHOD != null && RESOLVE_CLASS_METHOD != null;
+    public static boolean notSupport() {
+      return DEFINE_CLASS_METHOD == null || RESOLVE_CLASS_METHOD == null;
     }
 
     @SneakyThrows
@@ -173,6 +210,16 @@ public final class IntrusiveClassLoader extends RuntimeClassLoader {
         return;
       }
       RESOLVE_CLASS_METHOD.invoke(classLoader, c);
+    }
+  }
+
+
+  private class HijackedClassloader extends ClassLoader {
+
+    private final static String CLASS_FILE_SUFFIX = ".class";
+
+    private HijackedClassloader(ClassLoader classLoader) {
+
     }
   }
 }

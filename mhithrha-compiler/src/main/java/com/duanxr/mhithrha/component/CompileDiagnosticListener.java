@@ -12,22 +12,23 @@ import javax.tools.JavaFileObject;
  * @author 段然 2022/9/5
  */
 public class CompileDiagnosticListener implements DiagnosticListener<JavaFileObject> {
-  private final StringWriter out;
-  private final PrintWriter writer;
-
+  private final StringWriter out = new StringWriter();
+  private final PrintWriter writer = new PrintWriter(out);
+  private Locale locale = Locale.ENGLISH;
   public CompileDiagnosticListener() {
-    this.out = new StringWriter();
-    this.writer = new PrintWriter(out);
+  }
+  public CompileDiagnosticListener(Locale locale) {
+    this.locale = locale;
   }
 
   @Override
   public void report(Diagnostic<? extends JavaFileObject> diagnostic) {
     if (diagnostic.getKind() == Diagnostic.Kind.ERROR) {
-      printError(diagnostic);
+      writeErrorMessage(diagnostic);
     }
   }
 
-  private void printError(Diagnostic<? extends JavaFileObject> diagnostic) {
+  private void writeErrorMessage(Diagnostic<? extends JavaFileObject> diagnostic) {
     try {
       Field exceptionField = diagnostic.getClass().getDeclaredField("exception");
       exceptionField.setAccessible(true);
@@ -35,10 +36,10 @@ public class CompileDiagnosticListener implements DiagnosticListener<JavaFileObj
       exception.printStackTrace(writer);
     } catch (Exception ignored) {
     }
-    writer.println(diagnostic.getMessage(Locale.ENGLISH));
+    writer.println(diagnostic.getMessage(locale));
   }
 
-  public String getError() {
+  public String getErrorMessage() {
     return out.toString();
   }
 }

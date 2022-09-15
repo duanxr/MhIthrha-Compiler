@@ -35,42 +35,36 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
-import java.util.function.Function;
-import java.util.stream.Stream;
 import javax.tools.FileObject;
 import javax.tools.JavaFileManager;
 import javax.tools.JavaFileObject;
 import javax.tools.JavaFileObject.Kind;
 import javax.tools.StandardJavaFileManager;
+import lombok.Getter;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class RuntimeJavaFileManager implements JavaFileManager {
-
   private static final Set<Location> LOCATIONS = Set.of(SOURCE_PATH, CLASS_PATH, CLASS_OUTPUT,
       MODULE_PATH);
   private final ClassLoader classLoader;
   private final long compilationTimeout;
-
-  private final ReadWriteLock compiledClassConsumeLock = new ReentrantReadWriteLock();
-  private final Map<String, JavaMemoryClass> compilingClasses = new ConcurrentHashMap<>();
   private final Map<String, JavaMemoryClass> compiledClasses = new ConcurrentHashMap<>();
   private final Map<String, JavaMemoryCode> compiledCodes = new ConcurrentHashMap<>();
   private final Set<JavaArchive> extraArchives = ConcurrentHashMap.newKeySet();
   private final Map<String, JavaFileClass> extraClasses = new ConcurrentHashMap<>();
   private final StandardJavaFileManager fileManager;
   private final Set<JavaModuleLocation> moduleLocations = ConcurrentHashMap.newKeySet();
-
   @SuppressWarnings("unchecked")
   private final List<Set<Location>> moduleLocationList = Collections.singletonList(
       (Set<Location>) (Set<? extends Location>) moduleLocations);
@@ -89,77 +83,65 @@ public class RuntimeJavaFileManager implements JavaFileManager {
   }
 
   @SuppressWarnings("unchecked")
-  public synchronized Iterable<JavaFileObject> list(Location location, String packageName,
+  public Iterable<JavaFileObject> list(Location location, String packageName,
       Set<Kind> kinds, boolean recurse) throws IOException {
     Iterable<JavaFileObject> list;
     try {
-      list = fileManager.list(location, packageName, kinds, recurse);
+      synchronized (fileManager) {
+        list = fileManager.list(location, packageName, kinds, recurse);
+      }
     } catch (Exception e) {
       list = Collections.emptyList();
     }
     if (LOCATIONS.contains(location)) {
-      String uri = JavaNameUtil.toURI(packageName);
-      String javaPackageName = JavaNameUtil.toJavaName(packageName);
+      String uri = JavaClassNameUtil.toURI(packageName);
+      String javaPackageName = JavaClassNameUtil.toJavaName(packageName);
       List<RuntimeJavaFileObject> runtimeList = new ArrayList<>();
-      List<RuntimeJavaFileObject> synchronizedList = Collections.synchronizedList(runtimeList);
+      List<RuntimeJavaFileObject> synchronizedRuntimeList = Collections.synchronizedList(
+          runtimeList);
       if (location == MODULE_PATH) {
-        moduleLocations.stream().map(JavaModuleLocation::getFile)
-            .forEach(file -> resourcesLoader.loadJavaFiles(
-                file, uri, kinds, recurse, synchronizedList));
+        moduleLocations.stream().map(JavaModuleLocation::getFile).forEach(
+            file -> resourcesLoader.loadJavaFiles(file, uri, kinds, recurse,
+                synchronizedRuntimeList));
       } else if (location == CLASS_OUTPUT) {
-        compiledClassConsumeLock.readLock().lock();
-        try {
-          Stream.of(compilingClasses.values().stream(),
-                  compiledClasses.values().stream())
-              .flatMap(Function.identity())
+        if (kinds.contains(Kind.CLASS)) {
+          compiledClasses.values().stream()
               .filter(javaMemoryClass -> javaMemoryClass.inPackage(javaPackageName))
-              .forEach(synchronizedList::add);
-        } finally {
-          compiledClassConsumeLock.readLock().unlock();
+              .forEach(synchronizedRuntimeList::add);
         }
       } else if (location == SOURCE_PATH) {
         if (kinds.contains(Kind.CLASS)) {
-          compiledClassConsumeLock.readLock().lock();
-          try {
-            compiledClasses.values().stream()
-                .filter(javaMemoryClass ->
-                    recurse ? javaMemoryClass.inPackages(javaPackageName)
-                        : javaMemoryClass.inPackage(javaPackageName))
-                .forEach(synchronizedList::add);
-          } finally {
-            compiledClassConsumeLock.readLock().unlock();
-          }
+          compiledClasses.values().stream()
+              .filter(javaMemoryClass ->
+                  recurse ? javaMemoryClass.inPackages(javaPackageName)
+                      : javaMemoryClass.inPackage(javaPackageName))
+              .forEach(synchronizedRuntimeList::add);
         }
         if (kinds.contains(Kind.SOURCE)) {
           compiledCodes.values().stream()
               .filter(javaMemoryCode ->
                   recurse ? javaMemoryCode.inPackages(javaPackageName)
                       : javaMemoryCode.inPackage(javaPackageName))
-              .forEach(synchronizedList::add);
+              .forEach(synchronizedRuntimeList::add);
         }
       } else if (location == CLASS_PATH) {
         if (kinds.contains(Kind.CLASS)) {
-          compiledClassConsumeLock.readLock().lock();
-          try {
-            compiledClasses.values().stream()
-                .filter(javaMemoryClass ->
-                    recurse ? javaMemoryClass.inPackages(javaPackageName)
-                        : javaMemoryClass.inPackage(javaPackageName))
-                .forEach(synchronizedList::add);
-          } finally {
-            compiledClassConsumeLock.readLock().unlock();
-          }
+          compiledClasses.values().stream()
+              .filter(javaMemoryClass ->
+                  recurse ? javaMemoryClass.inPackages(javaPackageName)
+                      : javaMemoryClass.inPackage(javaPackageName))
+              .forEach(synchronizedRuntimeList::add);
           extraArchives.stream().map(JavaArchive::getFile)
               .forEach(file -> resourcesLoader.loadJavaFiles(file, uri, kinds, recurse,
-                  synchronizedList));
+                  synchronizedRuntimeList));
           extraClasses.values().stream()
               .filter(javaFileClass ->
                   recurse ? javaFileClass.inPackages(javaPackageName)
                       : javaFileClass.inPackage(javaPackageName))
-              .forEach(synchronizedList::add);
+              .forEach(synchronizedRuntimeList::add);
         }
       }
-      if (!synchronizedList.isEmpty()) {
+      if (!synchronizedRuntimeList.isEmpty()) {
         Iterator<JavaFileObject> runtimeIterator = Iterators.concat(
             ((List<JavaFileObject>) (List<? extends JavaFileObject>) runtimeList).iterator(),
             list.iterator());
@@ -192,7 +174,7 @@ public class RuntimeJavaFileManager implements JavaFileManager {
   }
 
   @Override
-  public synchronized boolean handleOption(String current, Iterator<String> remaining) {
+  public boolean handleOption(String current, Iterator<String> remaining) {
     return fileManager.handleOption(current, remaining);
   }
 
@@ -203,7 +185,7 @@ public class RuntimeJavaFileManager implements JavaFileManager {
   }
 
   @Override
-  public synchronized JavaFileObject getJavaFileForInput(Location location, String className,
+  public JavaFileObject getJavaFileForInput(Location location, String className,
       Kind kind) {
     if (LOCATIONS.contains(location)) {
       List<RuntimeJavaFileObject> list = Collections.synchronizedList(new ArrayList<>());
@@ -217,16 +199,11 @@ public class RuntimeJavaFileManager implements JavaFileManager {
           return javaFileObject;
         }
       } else {
-        String javaClassName = JavaNameUtil.toJavaName(className);
+        String javaClassName = JavaClassNameUtil.toJavaName(className);
         if (location == CLASS_OUTPUT && kind == Kind.CLASS) {
-          compiledClassConsumeLock.readLock().lock();
-          try {
-            JavaMemoryClass javaMemoryClass = compiledClasses.get(javaClassName);
-            if (javaMemoryClass != null) {
-              return javaMemoryClass;
-            }
-          } finally {
-            compiledClassConsumeLock.readLock().unlock();
+          JavaMemoryClass javaMemoryClass = compiledClasses.get(javaClassName);
+          if (javaMemoryClass != null) {
+            return javaMemoryClass;
           }
         } else if (location == SOURCE_PATH) {
           if (kind == Kind.SOURCE) {
@@ -236,29 +213,19 @@ public class RuntimeJavaFileManager implements JavaFileManager {
             }
           }
           if (kind == Kind.CLASS) {
-            compiledClassConsumeLock.readLock().lock();
-            try {
-              JavaMemoryClass javaMemoryClass = compiledClasses.get(javaClassName);
-              if (javaMemoryClass != null) {
-                return javaMemoryClass;
-              }
-            } finally {
-              compiledClassConsumeLock.readLock().unlock();
+            JavaMemoryClass javaMemoryClass = compiledClasses.get(javaClassName);
+            if (javaMemoryClass != null) {
+              return javaMemoryClass;
             }
           }
         } else if (location == CLASS_PATH) {
           if (kind == Kind.CLASS) {
-            compiledClassConsumeLock.readLock().lock();
-            try {
-              Optional<JavaMemoryClass> memoryClass = compiledClasses.values().stream()
-                  .filter(javaMemoryClass ->
-                      javaMemoryClass.getClassName().equals(javaClassName))
-                  .findAny();
-              if (memoryClass.isPresent()) {
-                return memoryClass.get();
-              }
-            } finally {
-              compiledClassConsumeLock.readLock().unlock();
+            Optional<JavaMemoryClass> memoryClass = compiledClasses.values().stream()
+                .filter(javaMemoryClass ->
+                    javaMemoryClass.getClassName().equals(javaClassName))
+                .findAny();
+            if (memoryClass.isPresent()) {
+              return memoryClass.get();
             }
             Optional<JavaFileClass> extraClass = extraClasses.values().stream()
                 .filter(javaMemoryClass ->
@@ -287,36 +254,18 @@ public class RuntimeJavaFileManager implements JavaFileManager {
   }
 
   @Override
+  @SneakyThrows
   public JavaFileObject getJavaFileForOutput(Location location, final String className, Kind kind,
       FileObject sibling) {
     if (location == CLASS_OUTPUT && kind == Kind.CLASS) {
-      String javaName = JavaNameUtil.toJavaName(className);
-      compiledClassConsumeLock.readLock().lock();
-      JavaMemoryClass javaMemoryClass = compiledClasses.get(javaName);
-      if (javaMemoryClass == null) {
-        javaMemoryClass = compilingClasses.get(javaName);
+      String javaName = JavaClassNameUtil.toJavaName(className);
+      synchronized (compiledClasses) {
+        JavaMemoryClass javaMemoryClass = compiledClasses.get(javaName);
         if (javaMemoryClass == null) {
-          compiledClassConsumeLock.readLock().unlock();
-          compiledClassConsumeLock.writeLock().lock();
-          try {
-            javaMemoryClass = compiledClasses.get(javaName);
-            if (javaMemoryClass == null) {
-              javaMemoryClass = compilingClasses.get(javaName);
-              if (javaMemoryClass == null) {
-                javaMemoryClass = new JavaMemoryClass(className, compilationTimeout);
-                compilingClasses.put(javaMemoryClass.getClassName(), javaMemoryClass);
-              }
-            }
-            compiledClassConsumeLock.readLock().lock();
-          } finally {
-            compiledClassConsumeLock.writeLock().unlock();
-          }
+          javaMemoryClass = new JavaMemoryClass(className, compilationTimeout);
+          compiledClasses.put(javaMemoryClass.getClassName(), javaMemoryClass);
         }
-      }
-      try {
         return javaMemoryClass;
-      } finally {
-        compiledClassConsumeLock.readLock().unlock();
       }
     }
     return null;
@@ -329,7 +278,8 @@ public class RuntimeJavaFileManager implements JavaFileManager {
   }
 
   @Override
-  public FileObject getFileForOutput(Location location, String packageName, String relativeName,
+  public FileObject getFileForOutput(Location location, String packageName, String
+      relativeName,
       FileObject sibling) throws IOException {
     return fileManager.getFileForOutput(location, packageName, relativeName, sibling);
   }
@@ -343,12 +293,12 @@ public class RuntimeJavaFileManager implements JavaFileManager {
     fileManager.close();
   }
 
-  public synchronized String inferModuleName(final Location location) throws IOException {
+  public String inferModuleName(final Location location) throws IOException {
     return location instanceof JavaModuleLocation javaModuleLocation
         ? javaModuleLocation.getModuleName() : fileManager.inferModuleName(location);
   }
 
-  public synchronized Iterable<Set<Location>> listLocationsForModules(final Location location)
+  public Iterable<Set<Location>> listLocationsForModules(final Location location)
       throws IOException {
     return location == MODULE_PATH ? moduleLocationList
         : fileManager.listLocationsForModules(location);
@@ -365,25 +315,11 @@ public class RuntimeJavaFileManager implements JavaFileManager {
     return fileManager.isSupportedOption(option);
   }
 
-  public JavaMemoryClass getCompiledClass(String className) {
-    compiledClassConsumeLock.writeLock().lock();
-    try {
-      JavaMemoryClass compiledClass = compilingClasses.get(className);
-      if (compiledClass == null) {
-        return null;
-      }
-      compiledClasses.put(className, compiledClass);
-      compilingClasses.remove(className);
-      return compiledClass;
-    } finally {
-      compiledClassConsumeLock.writeLock().unlock();
-    }
-  }
-
   public void addModule(Module module) {
     if (module.isNamed()) {
       module.getLayer().configuration().modules().stream()
-          .filter(Objects::nonNull).map(JavaModuleLocation::new).filter(JavaModuleLocation::notJrt)
+          .filter(Objects::nonNull).map(JavaModuleLocation::new)
+          .filter(JavaModuleLocation::notJrt)
           .filter(JavaModuleLocation::isExist).forEach(moduleLocations::add);
     }
   }
@@ -406,4 +342,129 @@ public class RuntimeJavaFileManager implements JavaFileManager {
     extraClasses.put(javaFileClass.getClassName(), javaFileClass);
   }
 
+  public CompilationInterceptor createInterceptor() {
+    return new CompilationInterceptor();
+  }
+
+  public JavaMemoryClass getCompiledClass(String className) {
+    return compiledClasses.get(className);
+  }
+
+  public class CompilationInterceptor implements JavaFileManager {
+
+    @Getter
+    private final Set<String> compiledClassNames = new HashSet<>();
+
+    @Override
+    public ClassLoader getClassLoader(Location location) {
+      return RuntimeJavaFileManager.this.getClassLoader(location);
+    }
+
+    @Override
+    public Iterable<JavaFileObject> list(Location location, String packageName, Set<Kind> kinds,
+        boolean recurse) throws IOException {
+      return RuntimeJavaFileManager.this.list(location, packageName, kinds, recurse);
+    }
+
+    @Override
+    public String inferBinaryName(Location location, JavaFileObject file) {
+      return RuntimeJavaFileManager.this.inferBinaryName(location, file);
+    }
+
+    @Override
+    public boolean isSameFile(FileObject a, FileObject b) {
+      return RuntimeJavaFileManager.this.isSameFile(a, b);
+    }
+
+    @Override
+    public boolean handleOption(String current, Iterator<String> remaining) {
+      return RuntimeJavaFileManager.this.handleOption(current, remaining);
+    }
+
+    @Override
+    public boolean hasLocation(Location location) {
+      return RuntimeJavaFileManager.this.hasLocation(location);
+    }
+
+    @Override
+    public JavaFileObject getJavaFileForInput(Location location, String className, Kind kind) {
+      return RuntimeJavaFileManager.this.getJavaFileForInput(location, className, kind);
+    }
+
+    @Override
+    public JavaFileObject getJavaFileForOutput(Location location, String className, Kind kind,
+        FileObject sibling) {
+      if (location == CLASS_OUTPUT && kind == Kind.CLASS) {
+        String javaName = JavaClassNameUtil.toJavaName(className);
+        synchronized (compiledClassNames) {
+          compiledClassNames.add(javaName);
+        }
+      }
+      return RuntimeJavaFileManager.this.getJavaFileForOutput(location, className, kind, sibling);
+    }
+
+    @Override
+    public FileObject getFileForInput(Location location, String packageName,
+        String relativeName)
+        throws IOException {
+      return RuntimeJavaFileManager.this.getFileForInput(location, packageName, relativeName);
+    }
+
+    @Override
+    public FileObject getFileForOutput(Location location, String packageName,
+        String relativeName,
+        FileObject sibling) throws IOException {
+      return RuntimeJavaFileManager.this.getFileForOutput(location, packageName, relativeName,
+          sibling);
+    }
+
+    @Override
+    public void flush() {
+      RuntimeJavaFileManager.this.flush();
+    }
+
+    @Override
+    public void close() throws IOException {
+      RuntimeJavaFileManager.this.close();
+    }
+
+    @Override
+    public Location getLocationForModule(Location location, String moduleName)
+        throws IOException {
+      return RuntimeJavaFileManager.this.getLocationForModule(location, moduleName);
+    }
+
+    @Override
+    public Location getLocationForModule(Location location, JavaFileObject fo)
+        throws IOException {
+      return RuntimeJavaFileManager.this.getLocationForModule(location, fo);
+    }
+
+    @Override
+    public <S> ServiceLoader<S> getServiceLoader(Location location, Class<S> service)
+        throws IOException {
+      return RuntimeJavaFileManager.this.getServiceLoader(location, service);
+    }
+
+    @Override
+    public String inferModuleName(Location location) throws IOException {
+      return RuntimeJavaFileManager.this.inferModuleName(location);
+    }
+
+    @Override
+    public Iterable<Set<Location>> listLocationsForModules(Location location)
+        throws IOException {
+      return RuntimeJavaFileManager.this.listLocationsForModules(location);
+    }
+
+    @Override
+    public boolean contains(Location location, FileObject fo) throws IOException {
+      return RuntimeJavaFileManager.this.contains(location, fo);
+    }
+
+    @Override
+    public int isSupportedOption(String option) {
+      return RuntimeJavaFileManager.this.isSupportedOption(option);
+    }
+  }
 }

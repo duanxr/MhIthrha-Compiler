@@ -1,6 +1,6 @@
 package com.duanxr.mhithrha.resource;
 
-import com.duanxr.mhithrha.component.JavaNameUtil;
+import com.duanxr.mhithrha.component.JavaClassNameUtil;
 import javax.tools.JavaFileObject;
 
 /**
@@ -8,11 +8,11 @@ import javax.tools.JavaFileObject;
  */
 public interface RuntimeJavaFileObject extends JavaFileObject {
   private String toClassName(String name) {
-    return JavaNameUtil.toJavaName(name);
+    return JavaClassNameUtil.toJavaName(name);
   }
 
   private String toPackageName(String name) {
-    return JavaNameUtil.toJavaName(name);
+    return JavaClassNameUtil.toJavaName(name);
   }
 
 }

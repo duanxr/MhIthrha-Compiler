@@ -7,15 +7,12 @@ import lombok.Setter;
 /**
  * @author 段然 2022/9/14
  */
-public class CompiledClassConverter implements Function<String, byte[]> {
-
+public class CompiledClassSupplier {
   @Setter
-  private volatile Function<String, JavaMemoryClass> function;
-
-  @Override
-  public byte[] apply(String name) {
-    if (function != null) {
-      JavaMemoryClass javaMemoryClass = function.apply(name);
+  private volatile Function<String, JavaMemoryClass> supplier;
+  public byte[] getCompiledClass(String name) {
+    if (supplier != null) {
+      JavaMemoryClass javaMemoryClass = supplier.apply(name);
       if (javaMemoryClass != null) {
         return javaMemoryClass.getBytes();
       }

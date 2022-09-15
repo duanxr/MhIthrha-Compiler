@@ -1,6 +1,6 @@
 package com.duanxr.mhithrha.resource;
 
-import com.duanxr.mhithrha.component.JavaNameUtil;
+import com.duanxr.mhithrha.component.JavaClassNameUtil;
 import java.io.File;
 import java.net.URI;
 import java.nio.charset.Charset;
@@ -20,26 +20,26 @@ public class JavaFileClass extends EclipseFileObject implements RuntimeJavaFileO
 
   public JavaFileClass(String name, File file) {
     super(name, file.toURI(), Kind.CLASS, StandardCharsets.UTF_8);
-    this.className = JavaNameUtil.toJavaName(name);
-    this.packageName = JavaNameUtil.toPackageName(name);
+    this.className = JavaClassNameUtil.toJavaName(name);
+    this.packageName = JavaClassNameUtil.toPackageName(name);
   }
 
   public JavaFileClass(String name, URI uri) {
     super(name, uri, Kind.CLASS, StandardCharsets.UTF_8);
-    this.className = JavaNameUtil.toJavaName(name);
-    this.packageName = JavaNameUtil.toPackageName(name);
+    this.className = JavaClassNameUtil.toJavaName(name);
+    this.packageName = JavaClassNameUtil.toPackageName(name);
   }
 
   public JavaFileClass(String name, URI uri, Kind kind, Charset charset) {
     super(name, uri, kind, charset);
-    this.className = JavaNameUtil.toJavaName(name);
-    this.packageName = JavaNameUtil.toPackageName(name);
+    this.className = JavaClassNameUtil.toJavaName(name);
+    this.packageName = JavaClassNameUtil.toPackageName(name);
   }
   public boolean inPackage(String targetPackageName) {
-    return JavaNameUtil.inPackage(this.packageName, targetPackageName);
+    return JavaClassNameUtil.inPackage(this.packageName, targetPackageName);
   }
 
   public boolean inPackages(String targetPackageName) {
-    return JavaNameUtil.inPackages(this.packageName, targetPackageName);
+    return JavaClassNameUtil.inPackages(this.packageName, targetPackageName);
   }
 }

@@ -22,6 +22,7 @@ public class SimpleJavaCodeParser {
     return className == null || className.isEmpty() ? null
         : packageName == null || packageName.isEmpty() ? className : packageName + "." + className;
   }
+
   private static String findPackageName(String javaCode) {
     try {
       Matcher matcher = PACKAGE_NAME_PATTERN.matcher(javaCode);

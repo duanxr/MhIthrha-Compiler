@@ -2,12 +2,12 @@ package com.duanxr.mhithrha;
 
 
 import com.duanxr.mhithrha.component.CompileDiagnosticListener;
-import com.duanxr.mhithrha.component.CompiledClassConverter;
-import com.duanxr.mhithrha.component.CompilerCore;
+import com.duanxr.mhithrha.component.CompiledClassSupplier;
 import com.duanxr.mhithrha.component.JavaCodeParser;
 import com.duanxr.mhithrha.component.JavaCompilerFactory;
 import com.duanxr.mhithrha.component.ResourcesLoader;
 import com.duanxr.mhithrha.component.RuntimeJavaFileManager;
+import com.duanxr.mhithrha.component.RuntimeJavaFileManager.CompilationInterceptor;
 import com.duanxr.mhithrha.loader.IntrusiveClassLoader;
 import com.duanxr.mhithrha.loader.RuntimeClassLoader;
 import com.duanxr.mhithrha.loader.StandaloneClassLoader;
@@ -24,7 +24,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import javax.tools.DiagnosticListener;
 import javax.tools.JavaCompiler;
+import javax.tools.JavaFileObject;
 import lombok.Getter;
 import lombok.SneakyThrows;
 
@@ -39,7 +41,6 @@ public class RuntimeCompiler {
 
   private static final JavaCompileSetting DEFAULT_COMPILE_SETTING = JavaCompileSetting.builder()
       .options(DEFAULT_OPTIONS).writer(DEFAULT_WRITER).build();
-  private final CompilerCore compilerCore;
   @Getter
   private final Configuration configuration;
   private final RuntimeClassLoader runtimeClassLoader;
@@ -47,36 +48,35 @@ public class RuntimeCompiler {
 
   private RuntimeCompiler(JavaCompiler javaCompiler, ClassLoader classLoader, Charset charset,
       boolean intrusive, long compilationTimeout) {
-    classLoader =
-        classLoader != null ? classLoader : Thread.currentThread().getContextClassLoader();
-    charset = charset != null ? charset : StandardCharsets.UTF_8;
-    compilationTimeout = compilationTimeout < 0L ? DEFAULT_COMPILATION_TIMEOUT : compilationTimeout;
-    this.configuration = new Configuration(javaCompiler, classLoader, charset, intrusive,
-        compilationTimeout);
-    CompiledClassConverter compiledClassConverter = new CompiledClassConverter();
-    this.runtimeClassLoader =
-        intrusive ? new IntrusiveClassLoader(classLoader, compiledClassConverter)
-            : new StandaloneClassLoader(classLoader, compiledClassConverter);
+    classLoader = classLoader == null ?
+        Thread.currentThread().getContextClassLoader() : classLoader;
+    charset = charset == null ?
+        StandardCharsets.UTF_8 : charset;
+    compilationTimeout = compilationTimeout < 0L ?
+        DEFAULT_COMPILATION_TIMEOUT : compilationTimeout;
+    this.configuration =
+        new Configuration(javaCompiler, classLoader, charset, intrusive, compilationTimeout);
     ResourcesLoader resourcesLoader = new ResourcesLoader();//todo if springboot
+    CompiledClassSupplier compiledClassSupplier = new CompiledClassSupplier();
+    this.runtimeClassLoader = intrusive ?
+        new IntrusiveClassLoader(classLoader, compiledClassSupplier) :
+        new StandaloneClassLoader(classLoader, compiledClassSupplier);
     this.runtimeJavaFileManager = new RuntimeJavaFileManager(
         javaCompiler.getStandardFileManager(null, null, charset),
         runtimeClassLoader, resourcesLoader, compilationTimeout);
-    compiledClassConverter.setFunction(runtimeJavaFileManager::getCompiledClass);
-    this.compilerCore = new CompilerCore(runtimeClassLoader, javaCompiler, runtimeJavaFileManager,
-        resourcesLoader);
+    compiledClassSupplier.setSupplier(runtimeJavaFileManager::getCompiledClass);
   }
 
   public static Builder builder() {
     return new Builder();
   }
-
   public void addModule(Module module) {
     runtimeJavaFileManager.addModule(module);
   }
 
   @SneakyThrows
   public void addExtraArchive(File file) {
-    runtimeClassLoader.addArchive(file);
+    runtimeClassLoader.addExtraArchive(file);
     runtimeJavaFileManager.addExtraArchive(file);
   }
 
@@ -84,46 +84,24 @@ public class RuntimeCompiler {
   public void addExtraClass(File file) {
     byte[] classContent = Files.readAllBytes(file.toPath());
     Class<?> clazz = runtimeClassLoader.defineClass(null, classContent);
-    String name = clazz.getName();
-    runtimeJavaFileManager.addExtraClass(name, file);
-  }
-
-  @SneakyThrows
-  private Class<?> compile(CompilerCore compilerCore, String className, String javaCode,
-      PrintWriter writer, List<String> optionList) {
-    if (writer == null) {
-      writer = DEFAULT_WRITER;
-    }
-    if (optionList == null || optionList.isEmpty()) {
-      optionList = DEFAULT_OPTIONS;
-    }
-    CompileDiagnosticListener diagnosticListener = new CompileDiagnosticListener();
-    List<JavaMemoryCode> javaFileObjects = Collections.singletonList(
-        new JavaMemoryCode(className, javaCode));
-    Map<String, Class<?>> classMap = compilerCore.compile(javaFileObjects, writer,
-        diagnosticListener, optionList);
-    if (classMap == null) {
-      throw new RuntimeCompilerException(diagnosticListener.getError());
-    }
-    Class<?> clazz = classMap.get(className);
-    return clazz == null ? runtimeClassLoader.loadClass(className) : clazz;
+    runtimeJavaFileManager.addExtraClass(clazz.getName(), file);
   }
 
   public Class<?> compile(JavaSourceCode sourceCode) {
-    return compileSingular(sourceCode, null);
+    return compile(Collections.singletonList(sourceCode), null).get(sourceCode.getName());
   }
 
-  private Class<?> compileSingular(JavaSourceCode sourceCode, JavaCompileSetting compileSetting) {
-    List<JavaMemoryCode> javaMemoryCodes = getSourceCode(Collections.singletonList(sourceCode));
+  private Map<String, Class<?>> compile(List<JavaSourceCode> sourceCodes, JavaCompileSetting compileSetting) {
+    List<JavaMemoryCode> javaMemoryCodes = getSourceCode(sourceCodes);
     List<String> options = getOptions(compileSetting);
     Writer writer = getWriter(compileSetting);
     CompileDiagnosticListener diagnosticListener = new CompileDiagnosticListener();
-    Map<String, Class<?>> classMap = compilerCore.compile(javaMemoryCodes, writer,
+    Map<String, Class<?>> classMap = compile(javaMemoryCodes, writer,
         diagnosticListener, options);
     if (classMap == null) {
-      throw new RuntimeCompilerException(diagnosticListener.getError());
+      throw new RuntimeCompilerException(diagnosticListener.getErrorMessage());
     }
-    return classMap.get(sourceCode.getName());
+    return classMap;
   }
 
   private List<JavaMemoryCode> getSourceCode(List<JavaSourceCode> sourceCodes) {
@@ -156,37 +134,31 @@ public class RuntimeCompiler {
         : compileSetting.getWriter();
   }
 
-  public Class<?> compile(JavaSourceCode sourceCode, JavaCompileSetting compileSetting) {
-    return compileSingular(sourceCode, compileSetting);
+  private Map<String, Class<?>> compile(List<JavaMemoryCode> compilationUnits,
+      Writer writer, DiagnosticListener<? super JavaFileObject> diagnosticListener, List<String> options) {
+    CompilationInterceptor interceptor = runtimeJavaFileManager.createInterceptor();
+    if (configuration.javaCompiler
+        .getTask(writer, interceptor, diagnosticListener, options, null, compilationUnits)
+        .call()) {
+      runtimeJavaFileManager.addCompileCode(compilationUnits);
+      return runtimeClassLoader.defineCompiledClass(interceptor.getCompiledClassNames());
+    }
+    return null;
   }
+
+  public Class<?> compile(JavaSourceCode sourceCode, JavaCompileSetting compileSetting) {
+    return compile(Collections.singletonList(sourceCode), compileSetting).get(sourceCode.getName());
+
+  }
+
 
   public Map<String, Class<?>> compile(List<JavaSourceCode> sourceCodes) {
-    return compileMultiple(sourceCodes, null);
+    return compile(sourceCodes, null);
   }
 
-  private Map<String, Class<?>> compileMultiple(List<JavaSourceCode> sourceCodes,
-      JavaCompileSetting compileSetting) {
-    List<JavaMemoryCode> javaMemoryCodes = getSourceCode(sourceCodes);
-    List<String> options = getOptions(compileSetting);
-    Writer writer = getWriter(compileSetting);
-    CompileDiagnosticListener diagnosticListener = new CompileDiagnosticListener();
-    Map<String, Class<?>> classMap = compilerCore.compile(javaMemoryCodes, writer,
-        diagnosticListener, options);
-    if (classMap == null) {
-      throw new RuntimeCompilerException(diagnosticListener.getError());
-    }
-    return classMap;
-  }
-
-  public Map<String, Class<?>> compile(List<JavaSourceCode> sourceCodes,
-      JavaCompileSetting compileSetting) {
-    return compileMultiple(sourceCodes, compileSetting);
-  }
-
-  public ClassLoader getRuntimeClassLoader() {
+  public ClassLoader getClassLoader() {
     return this.runtimeClassLoader;
   }
-
   public record Configuration(JavaCompiler javaCompiler, ClassLoader classLoader, Charset charset,
                               boolean intrusive, long compilationTimeout) {
 

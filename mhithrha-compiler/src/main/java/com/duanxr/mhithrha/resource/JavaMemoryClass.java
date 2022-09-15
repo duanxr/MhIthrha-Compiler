@@ -1,7 +1,7 @@
 package com.duanxr.mhithrha.resource;
 
 import com.duanxr.mhithrha.component.CallbackByteArrayOutputStream;
-import com.duanxr.mhithrha.component.JavaNameUtil;
+import com.duanxr.mhithrha.component.JavaClassNameUtil;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -23,9 +23,9 @@ public class JavaMemoryClass extends SimpleJavaFileObject implements RuntimeJava
   private volatile byte[] bytes;
 
   public JavaMemoryClass(String name, long timeout) {
-    super(createURI(JavaNameUtil.toURI(name)), Kind.CLASS);
-    this.className = JavaNameUtil.toJavaName(name);
-    this.packageName = JavaNameUtil.toPackageName(name);
+    super(createURI(JavaClassNameUtil.toURI(name)), Kind.CLASS);
+    this.className = JavaClassNameUtil.toJavaName(name);
+    this.packageName = JavaClassNameUtil.toPackageName(name);
     this.timeout = timeout;
   }
 
@@ -63,10 +63,10 @@ public class JavaMemoryClass extends SimpleJavaFileObject implements RuntimeJava
   }
 
   public boolean inPackage(String targetPackageName) {
-    return JavaNameUtil.inPackage(this.packageName, targetPackageName);
+    return JavaClassNameUtil.inPackage(this.packageName, targetPackageName);
   }
 
   public boolean inPackages(String targetPackageName) {
-    return JavaNameUtil.inPackages(this.packageName, targetPackageName);
+    return JavaClassNameUtil.inPackages(this.packageName, targetPackageName);
   }
 }

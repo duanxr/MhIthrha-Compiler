@@ -1,6 +1,6 @@
 package com.duanxr.mhithrha.resource;
 
-import com.duanxr.mhithrha.component.JavaNameUtil;
+import com.duanxr.mhithrha.component.JavaClassNameUtil;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.net.URI;
@@ -20,10 +20,10 @@ public class JavaMemoryCode extends SimpleJavaFileObject implements RuntimeJavaF
   private final String packageName;
 
   public JavaMemoryCode(String name, String code) {
-    super(createURI(JavaNameUtil.toURI(name)), Kind.SOURCE);
+    super(createURI(JavaClassNameUtil.toURI(name)), Kind.SOURCE);
     this.code = code;
-    this.className = JavaNameUtil.toJavaName(name);
-    this.packageName = JavaNameUtil.toPackageName(name);
+    this.className = JavaClassNameUtil.toJavaName(name);
+    this.packageName = JavaClassNameUtil.toPackageName(name);
   }
   @Override
   public CharSequence getCharContent(boolean ignoreEncodingErrors) {
@@ -37,9 +37,9 @@ public class JavaMemoryCode extends SimpleJavaFileObject implements RuntimeJavaF
     return URI.create("string:///" + path + Kind.SOURCE.extension);
   }
   public boolean inPackage(String targetPackageName) {
-    return JavaNameUtil.inPackage(this.packageName, targetPackageName);
+    return JavaClassNameUtil.inPackage(this.packageName, targetPackageName);
   }
   public boolean inPackages(String targetPackageName) {
-    return JavaNameUtil.inPackages(this.packageName, targetPackageName);
+    return JavaClassNameUtil.inPackages(this.packageName, targetPackageName);
   }
 }

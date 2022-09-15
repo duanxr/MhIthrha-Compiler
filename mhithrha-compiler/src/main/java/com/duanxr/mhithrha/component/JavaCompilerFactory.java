@@ -19,7 +19,6 @@ public class JavaCompilerFactory {
   }
 
   @SneakyThrows
-  @SuppressWarnings("")
   public static JavaCompiler getJavacCompiler() {
     Class<?> javacTool = Class.forName("com.sun.tools.javac.api.JavacTool");
     Method create = javacTool.getMethod("create");
