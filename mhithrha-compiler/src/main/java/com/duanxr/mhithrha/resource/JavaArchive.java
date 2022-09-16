@@ -20,8 +20,12 @@ public class JavaArchive extends Archive {
     this.file = file;
   }
 
-  public JavaFileArchive createJavaFileArchive(String fileName, Charset charset) {
-    return new JavaFileArchive(fileName, file, charset);
+  protected JavaArchive() {
+    this.file = null;
+  }
+
+  public RuntimeJavaFileObject createJavaArchiveFile(String fileName, Charset charset) {
+    return new JavaArchiveFile(fileName, file, charset);
   }
 
 }

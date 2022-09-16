@@ -1,0 +1,240 @@
+package com.duanxr.mhithrha.springboot.test.cases;
+
+import static org.junit.Assert.fail;
+
+import com.duanxr.mhithrha.JavaSourceCode;
+import com.duanxr.mhithrha.RuntimeCompiler;
+import com.duanxr.mhithrha.springboot.test.component.TestAnnotation;
+import java.lang.annotation.Annotation;
+import java.lang.reflect.Modifier;
+import java.util.function.Function;
+import java.util.function.Supplier;
+import lombok.AllArgsConstructor;
+import org.junit.Assert;
+
+/**
+ * @author 段然 2022/9/6
+ */
+@AllArgsConstructor
+@SuppressWarnings("unchecked")
+public class SimpleTest {
+  private RuntimeCompiler compiler;
+  public void testClass() {
+    String code = """
+        public class SimpleTestClass1{
+        }
+        """;
+    String className = "SimpleTestClass1";
+    try {
+      Class<?> compiledClass = compiler.compile(JavaSourceCode.of(className, code));
+      Assert.assertEquals(compiledClass.getSimpleName(), className);
+    } catch (Exception e) {
+      e.printStackTrace();
+      fail();
+    }
+  }
+  public void testClassWithoutName() {
+    String code = """
+        public class SimpleTestClass2{
+        }
+        """;
+    String className = "SimpleTestClass2";
+    try {
+      Class<?> compiledClass = compiler.compile(JavaSourceCode.of(code));
+      Assert.assertEquals(compiledClass.getSimpleName(), className);
+    } catch (Exception e) {
+      e.printStackTrace();
+      fail();
+    }
+  }
+  public void testClassWithInterface() {
+    String code = """
+        public class SimpleTestClass3 implements java.util.function.Supplier<String>{
+          @Override
+          public String get() {
+            return "SimpleTestClass3";
+          }
+        }
+        """;
+    String className = "SimpleTestClass3";
+    try {
+      Class<?> compiledClass = compiler.compile(JavaSourceCode.of(className, code));
+      Assert.assertEquals(compiledClass.getSimpleName(), className);
+      Supplier<String> object = (Supplier<String>) compiledClass.getConstructor().newInstance();
+      Assert.assertEquals(object.get(), className);
+    } catch (Exception e) {
+      e.printStackTrace();
+      fail();
+    }
+  }
+
+  public void testClassWithInterfaceWithoutName() {
+    String code = """
+        public class SimpleTestClass4 implements java.util.function.Supplier<String>{
+          @Override
+          public String get() {
+            return "SimpleTestClass4";
+          }
+        }
+        """;
+    String className = "SimpleTestClass4";
+    try {
+      Class<?> compiledClass = compiler.compile(JavaSourceCode.of(code));
+      Assert.assertEquals(compiledClass.getSimpleName(), className);
+      Supplier<String> object = (Supplier<String>) compiledClass.getConstructor().newInstance();
+      Assert.assertEquals(object.get(), className);
+    } catch (Exception e) {
+      e.printStackTrace();
+      fail();
+    }
+  }
+
+  public void testClassWithCatchingException() {
+    String code = """
+        public class SimpleTestClass5 implements java.util.function.Function<String,String>{
+          @Override
+          public String apply(String s) {
+            if(!getClass().getSimpleName().equals(s)){
+              throw new RuntimeException("SimpleTestClass5");
+            }
+            return getClass().getSimpleName();
+          }
+        }
+        """;
+    String className = "SimpleTestClass5";
+    try {
+      Class<?> compiledClass = compiler.compile(JavaSourceCode.of(className, code));
+      Assert.assertEquals(compiledClass.getSimpleName(), className);
+      Function<String, String> object = (Function<String, String>) compiledClass.getConstructor()
+          .newInstance();
+      Assert.assertEquals(object.apply(className), className);
+      try {
+        object.apply(null);
+        fail();
+      } catch (RuntimeException e) {
+        Assert.assertEquals(e.getMessage(), className);
+      }
+    } catch (Exception e) {
+      e.printStackTrace();
+      fail();
+    }
+  }
+
+  public void testClassWithCatchingExceptionWithoutName() {
+    String code = """
+        public class SimpleTestClass6 implements java.util.function.Function<String,String>{
+          @Override
+          public String apply(String s) {
+            if(!getClass().getSimpleName().equals(s)){
+              throw new RuntimeException("SimpleTestClass6");
+            }
+            return getClass().getSimpleName();
+          }
+        }
+        """;
+    String className = "SimpleTestClass6";
+    try {
+      Class<?> compiledClass = compiler.compile(JavaSourceCode.of(code));
+      Assert.assertEquals(compiledClass.getSimpleName(), className);
+      Function<String, String> object = (Function<String, String>) compiledClass.getConstructor()
+          .newInstance();
+      Assert.assertEquals(object.apply(className), className);
+      try {
+        object.apply(null);
+        fail();
+      } catch (RuntimeException e) {
+        Assert.assertEquals(e.getMessage(), className);
+      }
+    } catch (Exception e) {
+      e.printStackTrace();
+      fail();
+    }
+  }
+
+  public void testClassWithAnnotation() {
+    String code = """
+        @com.duanxr.mhithrha.springboot.test.component.TestAnnotation("I'm TestAnnotation")
+        public class SimpleTestClass7{
+         
+        }
+        """;
+    String className = "SimpleTestClass7";
+    try {
+      Class<?> compiledClass = compiler.compile(JavaSourceCode.of(code));
+      Assert.assertEquals(compiledClass.getSimpleName(), className);
+      Annotation[] annotations = compiledClass.getAnnotations();
+      TestAnnotation annotation = compiledClass.getAnnotation(TestAnnotation.class);
+      Assert.assertEquals(annotation.value(), "I'm TestAnnotation");
+    } catch (Exception e) {
+      e.printStackTrace();
+      fail();
+    }
+  }
+
+  public void testInterface() {
+    String code = """
+        public interface SimpleTestInterface8{
+         
+        }
+        """;
+    String className = "SimpleTestInterface8";
+    try {
+      Class<?> compiledClass = compiler.compile(JavaSourceCode.of(code));
+      Assert.assertEquals(compiledClass.getSimpleName(), className);
+      Assert.assertTrue(compiledClass.isInterface());
+    } catch (Exception e) {
+      e.printStackTrace();
+      fail();
+    }
+  }
+
+  public void testAbstractClass() {
+    String code = """
+        public abstract class SimpleTestClass9{
+         
+         public abstract void test();
+         
+        }
+        """;
+    String className = "SimpleTestClass9";
+    try {
+      Class<?> compiledClass = compiler.compile(JavaSourceCode.of(code));
+      Assert.assertEquals(compiledClass.getSimpleName(), className);
+      Assert.assertTrue(Modifier.isAbstract(compiledClass.getModifiers()));
+    } catch (Exception e) {
+      e.printStackTrace();
+      fail();
+    }
+  }
+
+  public void testNonAsciiClass() {
+    String code = """
+        public class 简单测试类10{
+        }
+        """;
+    String className = "简单测试类10";
+    try {
+      Class<?> compiledClass = compiler.compile(JavaSourceCode.of(className,code));
+      Assert.assertEquals(compiledClass.getSimpleName(), className);
+    } catch (Exception e) {
+      e.printStackTrace();
+      fail();
+    }
+  }
+
+  public void testNonAsciiClassWithoutName() {
+    String code = """
+        public class 简单测试类11{
+        }
+        """;
+    String className = "简单测试类11";
+    try {
+      Class<?> compiledClass = compiler.compile(JavaSourceCode.of(code));
+      Assert.assertEquals(compiledClass.getSimpleName(), className);
+    } catch (Exception e) {
+      e.printStackTrace();
+      fail();
+    }
+  }
+
+}

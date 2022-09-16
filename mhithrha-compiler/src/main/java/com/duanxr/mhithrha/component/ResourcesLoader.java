@@ -2,6 +2,7 @@ package com.duanxr.mhithrha.component;
 
 import com.duanxr.mhithrha.resource.JavaArchive;
 import com.duanxr.mhithrha.resource.JavaFileClass;
+import com.duanxr.mhithrha.resource.JavaSpringBootArchive;
 import com.duanxr.mhithrha.resource.RuntimeJavaFileObject;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
@@ -14,7 +15,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import javax.tools.JavaFileObject.Kind;
-import lombok.SneakyThrows;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -22,9 +23,12 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 public class ResourcesLoader {
+
   private static final LoadingCache<File, JavaArchive> ARCHIVE_CACHE = Caffeine.newBuilder()
       .removalListener(ResourcesLoader::closeJavaArchive).expireAfterAccess(10, TimeUnit.MINUTES)
-      .build(ResourcesLoader::loadJavaArchive);
+      .build(JavaArchive::new);
+
+  @Getter
   private final Charset charset;
 
   public ResourcesLoader() {
@@ -42,10 +46,6 @@ public class ResourcesLoader {
     }
   }
 
-  @SneakyThrows
-  public static JavaArchive loadJavaArchive(File file) {
-    return new JavaArchive(file);
-  }
 
   private Kind getKind(String extension) {
     if (Kind.CLASS.extension.equals(extension)) {
@@ -58,18 +58,21 @@ public class ResourcesLoader {
     return Kind.OTHER;
   }
 
+
   public RuntimeJavaFileObject loadJavaFile(File file, String className, Kind kind) {
     String normalizedFileName = JavaClassNameUtil.toURI(className) + kind.extension;
-    if (isArchive(file)) {
-      JavaArchive javaArchive = ARCHIVE_CACHE.get(file);
-      if (javaArchive != null && javaArchive.contains(normalizedFileName)) {
-        return javaArchive.createJavaFileArchive(normalizedFileName, this.charset);
+    if (file != null) {
+      if (isArchive(file)) {
+        JavaArchive javaArchive = ARCHIVE_CACHE.get(file);
+        if (javaArchive != null && javaArchive.contains(normalizedFileName)) {
+          return javaArchive.createJavaArchiveFile(normalizedFileName, this.charset);
+        }
       }
-    }
-    if (file.isDirectory()) {
-      File f = new File(file, normalizedFileName);
-      if (f.exists()) {
-        return new JavaFileClass(className, f.toURI(), kind, this.charset);
+      if (file.isDirectory()) {
+        File f = new File(file, normalizedFileName);
+        if (f.exists()) {
+          return new JavaFileClass(className, f.toURI(), kind, this.charset);
+        }
       }
     }
     return null;
@@ -89,23 +92,30 @@ public class ResourcesLoader {
     return name.substring(index);
   }
 
+  public void loadJavaArchives(JavaArchive archive, String normalizedPackageName,
+      Set<Kind> kinds, boolean recurse, List<RuntimeJavaFileObject> collector) {
+    if (archive != null) {
+      String key = normalizedPackageName.endsWith("/") ?
+          normalizedPackageName : normalizedPackageName + '/';
+      if (recurse) {
+        for (String packageName : archive.allPackages()) {
+          if (packageName.startsWith(key)) {
+            loadJavaFilesFromArchive(kinds, collector, archive, packageName);
+          }
+        }
+      } else {
+        loadJavaFilesFromArchive(kinds, collector, archive, key);
+      }
+    }
+  }
+
   public void loadJavaFiles(File file, String normalizedPackageName,
       Set<Kind> kinds, boolean recurse, List<RuntimeJavaFileObject> collector) {
+    if (file == null) {
+      return;
+    }
     if (isArchive(file)) {
-      JavaArchive archive = ARCHIVE_CACHE.get(file);
-      if (archive != null) {
-        String key = normalizedPackageName.endsWith("/") ?
-            normalizedPackageName : normalizedPackageName + '/';
-        if (recurse) {
-          for (String packageName : archive.allPackages()) {
-            if (packageName.startsWith(key)) {
-              loadJavaFilesFromArchive(kinds, collector, archive, packageName);
-            }
-          }
-        } else {
-          loadJavaFilesFromArchive(kinds, collector, archive, key);
-        }
-      }
+      loadJavaArchives(ARCHIVE_CACHE.get(file), normalizedPackageName, kinds, recurse, collector);
     } else {
       File currentFile = new File(file, normalizedPackageName);
       if (!currentFile.exists()) {
@@ -150,9 +160,18 @@ public class ResourcesLoader {
       for (String[] entry : types) {
         final Kind kind = getKind(getExtension(entry[0]));
         if (kinds.contains(kind)) {
-          collector.add(archive.createJavaFileArchive(packageName + entry[0], this.charset));
+          collector.add(archive.createJavaArchiveFile(packageName + entry[0], this.charset));
         }
       }
     }
+  }
+
+  public RuntimeJavaFileObject loadJavaSpringBootFile(JavaSpringBootArchive javaSpringBootArchive,
+      String javaClassName) {
+    String normalizedFileName = JavaClassNameUtil.toURI(javaClassName)+Kind.CLASS.extension;
+    if (javaSpringBootArchive != null && javaSpringBootArchive.contains(normalizedFileName)) {
+      return javaSpringBootArchive.createJavaArchiveFile(normalizedFileName, this.charset);
+    }
+    return null;
   }
 }

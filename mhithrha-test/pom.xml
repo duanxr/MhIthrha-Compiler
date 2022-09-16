@@ -10,7 +10,6 @@
   <modelVersion>4.0.0</modelVersion>
   <artifactId>mhithrha-test</artifactId>
   <packaging>jar</packaging>
-  <name>Mh'Ithrha-Compiler</name>
   <version>1.0.0</version>
   <build>
     <plugins>

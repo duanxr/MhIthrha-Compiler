@@ -35,6 +35,13 @@ public class JavaFileClass extends EclipseFileObject implements RuntimeJavaFileO
     this.className = JavaClassNameUtil.toJavaName(name);
     this.packageName = JavaClassNameUtil.toPackageName(name);
   }
+
+  public JavaFileClass(String name, File file, Charset charset) {
+    super(name, file.toURI(), Kind.CLASS, charset);
+    this.className = JavaClassNameUtil.toJavaName(name);
+    this.packageName = JavaClassNameUtil.toPackageName(name);
+  }
+
   public boolean inPackage(String targetPackageName) {
     return JavaClassNameUtil.inPackage(this.packageName, targetPackageName);
   }

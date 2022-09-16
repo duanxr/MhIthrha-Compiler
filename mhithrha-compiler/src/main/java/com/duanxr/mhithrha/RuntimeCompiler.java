@@ -8,8 +8,11 @@ import com.duanxr.mhithrha.component.JavaCompilerFactory;
 import com.duanxr.mhithrha.component.ResourcesLoader;
 import com.duanxr.mhithrha.component.RuntimeJavaFileManager;
 import com.duanxr.mhithrha.component.RuntimeJavaFileManager.CompilationInterceptor;
+import com.duanxr.mhithrha.component.SpringBootArchiveReader;
+import com.duanxr.mhithrha.component.SpringBootDetector;
 import com.duanxr.mhithrha.loader.RuntimeClassLoader;
 import com.duanxr.mhithrha.loader.StandaloneClassLoader;
+import com.duanxr.mhithrha.resource.JavaFileClass;
 import com.duanxr.mhithrha.resource.JavaMemoryCode;
 import com.google.common.base.Strings;
 import java.io.File;
@@ -54,7 +57,7 @@ public class RuntimeCompiler {
     compilationTimeout = compilationTimeout < 0L ?
         DEFAULT_COMPILATION_TIMEOUT : compilationTimeout;
     this.configuration = new Configuration(javaCompiler, classLoader, charset, compilationTimeout);
-    ResourcesLoader resourcesLoader = new ResourcesLoader();//todo if springboot
+    ResourcesLoader resourcesLoader = new ResourcesLoader(charset);
     CompiledClassSupplier compiledClassSupplier = new CompiledClassSupplier();
     this.runtimeClassLoader = new StandaloneClassLoader(classLoader, compiledClassSupplier);
     this.runtimeJavaFileManager = new RuntimeJavaFileManager(
@@ -62,6 +65,7 @@ public class RuntimeCompiler {
         runtimeClassLoader, resourcesLoader, compilationTimeout);
     compiledClassSupplier.setSupplier(runtimeJavaFileManager::getCompiledClass);
   }
+
   @SneakyThrows
   protected RuntimeCompiler(Configuration configuration,
       RuntimeClassLoader runtimeClassLoader, RuntimeJavaFileManager runtimeJavaFileManager) {
@@ -72,6 +76,15 @@ public class RuntimeCompiler {
 
   public static Builder builder() {
     return new Builder();
+  }
+
+  public void loadSpringBootArchives() {
+    ClassLoader springBootClassLoader = SpringBootDetector.findSpringBootClassLoader();
+    if (springBootClassLoader != null) {
+      SpringBootArchiveReader springBootArchiveReader = new SpringBootArchiveReader(
+          springBootClassLoader);
+      runtimeJavaFileManager.addSpringBootArchives(springBootArchiveReader.loadArchives());
+    }
   }
 
   @SneakyThrows
@@ -95,7 +108,8 @@ public class RuntimeCompiler {
   public void addExtraClass(File file) {
     byte[] classContent = Files.readAllBytes(file.toPath());
     Class<?> clazz = runtimeClassLoader.defineClass(null, classContent);
-    runtimeJavaFileManager.addExtraClass(clazz.getName(), file);
+    JavaFileClass javaFileClass = new JavaFileClass(clazz.getName(), file, configuration.charset());
+    runtimeJavaFileManager.addExtraClass(javaFileClass);
   }
 
   public Class<?> compile(JavaSourceCode sourceCode) {
@@ -132,7 +146,8 @@ public class RuntimeCompiler {
           "class name is empty and can't find class name by source code, please set class name manually");
     }
     return sourceCodes.parallelStream()
-        .map(sourceCode -> new JavaMemoryCode(sourceCode.getName(), sourceCode.getCode()))
+        .map(sourceCode -> new JavaMemoryCode(sourceCode.getName(), sourceCode.getCode(),
+            configuration.charset()))
         .toList();
   }
 

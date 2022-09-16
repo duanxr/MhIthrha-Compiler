@@ -11,8 +11,6 @@
   <modules>
     <module>mhithrha-compiler</module>
     <module>mhithrha-test</module>
-    <module>mhithrha-module-test</module>
-    <module>mhithrha-springboot-test</module>
   </modules>
   <dependencyManagement>
     <dependencies>

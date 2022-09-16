@@ -1,4 +1,4 @@
-package com.duanxr.mhithrha.test.cases;
+package com.duanxr.mhithrha.springboot.test.cases;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
@@ -67,7 +67,7 @@ public class TheadSafeTest {
       executor.shutdown();
       Set<Integer> integerSet = new HashSet<>(nThreads);
       for (Future<Integer> f : futures) {
-        Integer i = f.get(30, TimeUnit.SECONDS);
+        Integer i = f.get(10, TimeUnit.SECONDS);
         integerSet.add(i);
       }
       assertEquals(nThreads, integerSet.size());
