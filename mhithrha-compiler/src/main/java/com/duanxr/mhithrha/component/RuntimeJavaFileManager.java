@@ -55,6 +55,7 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class RuntimeJavaFileManager implements JavaFileManager {
+
   private static final Set<Location> LOCATIONS = Set.of(SOURCE_PATH, CLASS_PATH, CLASS_OUTPUT,
       MODULE_PATH);
   private final ClassLoader classLoader;
@@ -165,23 +166,37 @@ public class RuntimeJavaFileManager implements JavaFileManager {
     if (file instanceof JavaFileClass javaFileClass) {
       return javaFileClass.getClassName();
     }
-    return fileManager.inferBinaryName(location, file);
+    synchronized (fileManager) {
+      return fileManager.inferBinaryName(location, file);
+    }
   }
 
   @Override
   public boolean isSameFile(FileObject a, FileObject b) {
-    return a == b || fileManager.isSameFile(a, b);
+    if (a == b) {
+      return true;
+    }
+    synchronized (fileManager) {
+      return fileManager.isSameFile(a, b);
+    }
   }
 
   @Override
   public boolean handleOption(String current, Iterator<String> remaining) {
-    return fileManager.handleOption(current, remaining);
+    synchronized (fileManager) {
+      return fileManager.handleOption(current, remaining);
+    }
   }
 
 
   @Override
   public boolean hasLocation(Location location) {
-    return LOCATIONS.contains(location) || fileManager.hasLocation(location);
+    if (LOCATIONS.contains(location)) {
+      return true;
+    }
+    synchronized (fileManager) {
+      return fileManager.hasLocation(location);
+    }
   }
 
   @Override
@@ -247,7 +262,9 @@ public class RuntimeJavaFileManager implements JavaFileManager {
       }
     }
     try {
-      return fileManager.getJavaFileForInput(location, className, kind);
+      synchronized (fileManager) {
+        return fileManager.getJavaFileForInput(location, className, kind);
+      }
     } catch (Exception ignored) {
       return null;
     }
@@ -274,14 +291,17 @@ public class RuntimeJavaFileManager implements JavaFileManager {
   @Override
   public FileObject getFileForInput(Location location, String packageName, String relativeName)
       throws IOException {
-    return fileManager.getFileForInput(location, packageName, relativeName);
+    synchronized (fileManager) {
+      return fileManager.getFileForInput(location, packageName, relativeName);
+    }
   }
 
   @Override
   public FileObject getFileForOutput(Location location, String packageName, String
-      relativeName,
-      FileObject sibling) throws IOException {
-    return fileManager.getFileForOutput(location, packageName, relativeName, sibling);
+      relativeName, FileObject sibling) throws IOException {
+    synchronized (fileManager) {
+      return fileManager.getFileForOutput(location, packageName, relativeName, sibling);
+    }
   }
 
   @Override
@@ -290,29 +310,48 @@ public class RuntimeJavaFileManager implements JavaFileManager {
 
   @Override
   public void close() throws IOException {
+    compiledClasses.clear();
+    compiledCodes.clear();
+    extraArchives.clear();
+    extraClasses.clear();
+    moduleLocations.clear();
     fileManager.close();
   }
 
   public String inferModuleName(final Location location) throws IOException {
-    return location instanceof JavaModuleLocation javaModuleLocation
-        ? javaModuleLocation.getModuleName() : fileManager.inferModuleName(location);
+    if (location instanceof JavaModuleLocation javaModuleLocation) {
+      return javaModuleLocation.getModuleName();
+    }
+    synchronized (fileManager) {
+      return fileManager.inferModuleName(location);
+    }
   }
 
   public Iterable<Set<Location>> listLocationsForModules(final Location location)
       throws IOException {
-    return location == MODULE_PATH ? moduleLocationList
-        : fileManager.listLocationsForModules(location);
+    if (location == MODULE_PATH) {
+      return moduleLocationList;
+    }
+    synchronized (fileManager) {
+      return fileManager.listLocationsForModules(location);
+    }
   }
 
   @Override
   public boolean contains(Location location, FileObject fileObject) throws IOException {
-    return fileObject instanceof RuntimeJavaFileObject || fileManager.contains(location,
-        fileObject);
+    if (fileObject instanceof RuntimeJavaFileObject) {
+      return true;
+    }
+    synchronized (fileManager) {
+      return fileManager.contains(location, fileObject);
+    }
   }
 
   @Override
   public int isSupportedOption(String option) {
-    return fileManager.isSupportedOption(option);
+    synchronized (fileManager) {
+      return fileManager.isSupportedOption(option);
+    }
   }
 
   public void addModule(Module module) {

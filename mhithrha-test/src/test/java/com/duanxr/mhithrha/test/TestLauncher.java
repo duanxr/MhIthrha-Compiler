@@ -17,63 +17,54 @@ import org.junit.Test;
 /**
  * @author 段然 2022/9/6
  *
- * Only test one at a time for IntrusiveClassLoader define class on current ClassLoader which cause
- * LinkageError when define same class again.
- *
- * Add jvm arg "--add-opens=java.base/java.lang=ALL-UNNAMED" to enable intrusively define class
  */
 public class TestLauncher {
 
+  /**
+   * Add jvm arg "-javaagent:src/test/resources/lombok-1.18.24.jar" to enable lombok support for EclipseCompiler
+   * Add jvm arg "--add-opens=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED" to load Javac compiler
+   */
   @Test
+  public void test()
+  {
+    testWithEclipseCompiler();
+    testWithJdkCompiler();
+    testWithJavacCompiler();
+  }
+
   @SneakyThrows
-  public void testWithJdkCompiler() {
+  private void testWithJdkCompiler() {
     testWithCustomClassLoader(Builder::withJdkCompiler);
     testWithDefaultClassLoader(Builder::withJdkCompiler);
   }
 
-  /**
-   * Add jvm arg "--add-opens=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED" to load Javac
-   * compiler
-   */
-  @Test
   @SneakyThrows
-  public void testWithJavacCompiler() {
+  private void testWithJavacCompiler() {
     testWithCustomClassLoader(Builder::withJavacCompiler);
     testWithDefaultClassLoader(Builder::withJavacCompiler);
   }
 
-  /**
-   * add jvm arg "-javaagent:src/test/resources/lombok-1.18.24.jar" to enable lombok support
-   */
-  @Test
   @SneakyThrows
-  public void testWithEclipseCompiler() {
+  private void testWithEclipseCompiler() {
     testWithCustomClassLoader(Builder::withEclipseCompiler);
     testWithDefaultClassLoader(Builder::withEclipseCompiler);
   }
 
-  private void testWithDefaultClassLoader(Function<Builder, RuntimeCompiler> compilerBuildFunction) {
+  private void testWithDefaultClassLoader(
+      Function<Builder, RuntimeCompiler> compilerBuildFunction) {
     testStandaloneMode(compilerBuildFunction, Thread.currentThread().getContextClassLoader());
-    testIntrusiveMode(compilerBuildFunction, Thread.currentThread().getContextClassLoader());
   }
 
   private void testWithCustomClassLoader(Function<Builder, RuntimeCompiler> compilerBuildFunction) {
     testStandaloneMode(compilerBuildFunction, new ClassLoader() {
     });
-    testIntrusiveMode(compilerBuildFunction, new ClassLoader() {
-    });
   }
 
   public void testStandaloneMode(Function<Builder, RuntimeCompiler> compilerBuildFunction,
       ClassLoader classLoader) {
-    doTest(compilerBuildFunction.apply(
-        RuntimeCompiler.builder().withClassLoader(classLoader).intrusive(false)));
+    doTest(compilerBuildFunction.apply(RuntimeCompiler.builder().withClassLoader(classLoader)));
   }
 
-  public void testIntrusiveMode(Function<Builder, RuntimeCompiler> compilerBuildFunction,
-      ClassLoader classLoader) {
-    //doTest(compilerBuildFunction.apply(RuntimeCompiler.builder().withClassLoader(classLoader).intrusive(true)));
-  }
 
   private void doTest(RuntimeCompiler compiler) {
     doTest(new SimpleTest(compiler));

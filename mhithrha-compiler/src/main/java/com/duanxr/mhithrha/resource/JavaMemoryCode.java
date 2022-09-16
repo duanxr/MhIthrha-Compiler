@@ -13,9 +13,9 @@ import lombok.Getter;
  */
 public class JavaMemoryCode extends SimpleJavaFileObject implements RuntimeJavaFileObject {
   @Getter
-  private final String code;
-  @Getter
   private final String className;
+  @Getter
+  private final String code;
   @Getter
   private final String packageName;
 
@@ -25,17 +25,21 @@ public class JavaMemoryCode extends SimpleJavaFileObject implements RuntimeJavaF
     this.className = JavaClassNameUtil.toJavaName(name);
     this.packageName = JavaClassNameUtil.toPackageName(name);
   }
-  @Override
-  public CharSequence getCharContent(boolean ignoreEncodingErrors) {
-    return code;
+
+  private static URI createURI(String path) {
+    return URI.create("string:///" + path + Kind.SOURCE.extension);
   }
+
   @Override
   public InputStream openInputStream() {
     return new ByteArrayInputStream(code.getBytes(StandardCharsets.UTF_8));
   }
-  private static URI createURI(String path) {
-    return URI.create("string:///" + path + Kind.SOURCE.extension);
+
+  @Override
+  public CharSequence getCharContent(boolean ignoreEncodingErrors) {
+    return code;
   }
+
   public boolean inPackage(String targetPackageName) {
     return JavaClassNameUtil.inPackage(this.packageName, targetPackageName);
   }

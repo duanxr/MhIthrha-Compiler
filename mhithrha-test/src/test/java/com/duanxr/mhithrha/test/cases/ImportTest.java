@@ -67,7 +67,7 @@ public class ImportTest {
           .newInstance();
       Assert.assertEquals(object.apply(className), "{\"import\":true,\"apply\":\"ImportTest2\",\"status\":\"working\"}");
     } catch (Throwable e) {
-      e.printStackTrace();
+      e.getCause().printStackTrace();
       fail();
     }
   }

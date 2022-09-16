@@ -13,13 +13,16 @@ import lombok.SneakyThrows;
  * @author 段然 2022/9/5
  */
 public final class StandaloneClassLoader extends RuntimeClassLoader {
+
   private final CompiledClassSupplier compiledClassSupplier;
   private final Set<String> findClassSet;
-  private final Map<String, Class<?>> loadedClasses = new ConcurrentHashMap<>();
+  private final Map<String, Class<?>> loadedClasses;
+
   public StandaloneClassLoader(ClassLoader parent, CompiledClassSupplier compiledClassSupplier) {
     super(parent);
     this.compiledClassSupplier = compiledClassSupplier;
     this.findClassSet = ConcurrentHashMap.newKeySet();
+    this.loadedClasses = new ConcurrentHashMap<>();
   }
 
   @Override
@@ -27,6 +30,14 @@ public final class StandaloneClassLoader extends RuntimeClassLoader {
     Class<?> loadedClass = loadedClasses.get(name);
     return loadedClass == null ? super.loadClass(name) : loadedClass;
   }
+
+  @Override
+  public void closeForReal() {
+    super.closeForReal();
+    findClassSet.clear();
+    loadedClasses.clear();
+  }
+
 
   @Override
   public Class<?> defineClass(String name, byte[] bytes) {

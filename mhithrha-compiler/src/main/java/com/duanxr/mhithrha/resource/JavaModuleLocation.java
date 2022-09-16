@@ -17,16 +17,29 @@ import lombok.Getter;
 @EqualsAndHashCode(of = {"moduleName", "file"})
 public class JavaModuleLocation implements Location {
   @Getter
+  private final File file;
+  @Getter
   private final String moduleName;
   @Getter
   private final ModuleReference reference;
-  @Getter
-  private final File file;
 
   public JavaModuleLocation(ResolvedModule module) {
     this.moduleName = module.name();
     this.reference = module.reference();
     this.file = gerReferenceFile();
+  }
+
+  private File gerReferenceFile() {
+    if (reference != null) {
+      Optional<URI> location = reference.location();
+      if (location.isPresent()) {
+        URI uri = location.get();
+        if ("file".equalsIgnoreCase(uri.getScheme())) {
+          return new File(uri);
+        }
+      }
+    }
+    return null;
   }
 
   @Override
@@ -59,19 +72,6 @@ public class JavaModuleLocation implements Location {
 
   public boolean isExist() {
     return file != null && file.exists();
-  }
-
-  private File gerReferenceFile() {
-    if (reference != null) {
-      Optional<URI> location = reference.location();
-      if (location.isPresent()) {
-        URI uri = location.get();
-        if ("file".equalsIgnoreCase(uri.getScheme())) {
-          return new File(uri);
-        }
-      }
-    }
-    return null;
   }
 
 }

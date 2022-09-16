@@ -90,9 +90,7 @@ public class PackageTest {
 
   public void testPackageAccessClassFromAnotherClassLoader() {
     //you can not access the same package class from another class loader
-    boolean shouldSucceed = compiler.getConfiguration().intrusive()
-        && compiler.getConfiguration().classLoader() == Thread.currentThread()
-        .getContextClassLoader();
+    boolean shouldSucceed = false;
     String code = """
         package com.duanxr.mhithrha.test.component;
         import com.duanxr.mhithrha.test.runtime.PackageTestClass2;

@@ -10,8 +10,7 @@ import lombok.SneakyThrows;
 /**
  * @author 段然 2022/9/7
  */
-public sealed abstract class RuntimeClassLoader extends URLClassLoader permits
-    StandaloneClassLoader, IntrusiveClassLoader {
+public abstract class RuntimeClassLoader extends URLClassLoader{
   public RuntimeClassLoader(ClassLoader parent) {
     super(new URL[0], parent);
   }

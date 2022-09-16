@@ -8,7 +8,6 @@ import com.duanxr.mhithrha.component.JavaCompilerFactory;
 import com.duanxr.mhithrha.component.ResourcesLoader;
 import com.duanxr.mhithrha.component.RuntimeJavaFileManager;
 import com.duanxr.mhithrha.component.RuntimeJavaFileManager.CompilationInterceptor;
-import com.duanxr.mhithrha.loader.IntrusiveClassLoader;
 import com.duanxr.mhithrha.loader.RuntimeClassLoader;
 import com.duanxr.mhithrha.loader.StandaloneClassLoader;
 import com.duanxr.mhithrha.resource.JavaMemoryCode;
@@ -47,29 +46,41 @@ public class RuntimeCompiler {
   private final RuntimeJavaFileManager runtimeJavaFileManager;
 
   private RuntimeCompiler(JavaCompiler javaCompiler, ClassLoader classLoader, Charset charset,
-      boolean intrusive, long compilationTimeout) {
+      long compilationTimeout) {
     classLoader = classLoader == null ?
         Thread.currentThread().getContextClassLoader() : classLoader;
     charset = charset == null ?
         StandardCharsets.UTF_8 : charset;
     compilationTimeout = compilationTimeout < 0L ?
         DEFAULT_COMPILATION_TIMEOUT : compilationTimeout;
-    this.configuration =
-        new Configuration(javaCompiler, classLoader, charset, intrusive, compilationTimeout);
+    this.configuration = new Configuration(javaCompiler, classLoader, charset, compilationTimeout);
     ResourcesLoader resourcesLoader = new ResourcesLoader();//todo if springboot
     CompiledClassSupplier compiledClassSupplier = new CompiledClassSupplier();
-    this.runtimeClassLoader = intrusive ?
-        new IntrusiveClassLoader(classLoader, compiledClassSupplier) :
-        new StandaloneClassLoader(classLoader, compiledClassSupplier);
+    this.runtimeClassLoader = new StandaloneClassLoader(classLoader, compiledClassSupplier);
     this.runtimeJavaFileManager = new RuntimeJavaFileManager(
         javaCompiler.getStandardFileManager(null, null, charset),
         runtimeClassLoader, resourcesLoader, compilationTimeout);
     compiledClassSupplier.setSupplier(runtimeJavaFileManager::getCompiledClass);
   }
+  @SneakyThrows
+  protected RuntimeCompiler(Configuration configuration,
+      RuntimeClassLoader runtimeClassLoader, RuntimeJavaFileManager runtimeJavaFileManager) {
+    this.configuration = configuration;
+    this.runtimeClassLoader = runtimeClassLoader;
+    this.runtimeJavaFileManager = runtimeJavaFileManager;
+  }
 
   public static Builder builder() {
     return new Builder();
   }
+
+  @SneakyThrows
+  public void close() {
+    runtimeClassLoader.close();
+    runtimeClassLoader.closeForReal();
+    runtimeJavaFileManager.close();
+  }
+
   public void addModule(Module module) {
     runtimeJavaFileManager.addModule(module);
   }
@@ -91,7 +102,8 @@ public class RuntimeCompiler {
     return compile(Collections.singletonList(sourceCode), null).get(sourceCode.getName());
   }
 
-  private Map<String, Class<?>> compile(List<JavaSourceCode> sourceCodes, JavaCompileSetting compileSetting) {
+  private Map<String, Class<?>> compile(List<JavaSourceCode> sourceCodes,
+      JavaCompileSetting compileSetting) {
     List<JavaMemoryCode> javaMemoryCodes = getSourceCode(sourceCodes);
     List<String> options = getOptions(compileSetting);
     Writer writer = getWriter(compileSetting);
@@ -99,7 +111,7 @@ public class RuntimeCompiler {
     Map<String, Class<?>> classMap = compile(javaMemoryCodes, writer,
         diagnosticListener, options);
     if (classMap == null) {
-      throw new RuntimeCompilerException(diagnosticListener.getErrorMessage());
+      throw new RuntimeCompilationException(diagnosticListener.getErrorMessage());
     }
     return classMap;
   }
@@ -135,7 +147,8 @@ public class RuntimeCompiler {
   }
 
   private Map<String, Class<?>> compile(List<JavaMemoryCode> compilationUnits,
-      Writer writer, DiagnosticListener<? super JavaFileObject> diagnosticListener, List<String> options) {
+      Writer writer, DiagnosticListener<? super JavaFileObject> diagnosticListener,
+      List<String> options) {
     CompilationInterceptor interceptor = runtimeJavaFileManager.createInterceptor();
     if (configuration.javaCompiler
         .getTask(writer, interceptor, diagnosticListener, options, null, compilationUnits)
@@ -159,8 +172,9 @@ public class RuntimeCompiler {
   public ClassLoader getClassLoader() {
     return this.runtimeClassLoader;
   }
+
   public record Configuration(JavaCompiler javaCompiler, ClassLoader classLoader, Charset charset,
-                              boolean intrusive, long compilationTimeout) {
+                              long compilationTimeout) {
 
   }
 
@@ -169,12 +183,10 @@ public class RuntimeCompiler {
     private Charset charset;
     private ClassLoader classLoader;
     private long compilationTimeout;
-    private boolean intrusive;
 
     private Builder() {
       this.charset = null;
       this.classLoader = null;
-      this.intrusive = false;
       this.compilationTimeout = -1;
     }
 
@@ -188,11 +200,6 @@ public class RuntimeCompiler {
       return this;
     }
 
-    public Builder intrusive(boolean intrusive) {
-      this.intrusive = intrusive;
-      return this;
-    }
-
     public Builder compilationTimeout(long milliseconds) {
       this.compilationTimeout = milliseconds;
       return this;
@@ -200,22 +207,21 @@ public class RuntimeCompiler {
 
     public RuntimeCompiler withEclipseCompiler() {
       return new RuntimeCompiler(JavaCompilerFactory.getEclipseCompiler(), classLoader, charset,
-          intrusive, compilationTimeout);
+          compilationTimeout);
     }
 
     public RuntimeCompiler withJdkCompiler() {
       return new RuntimeCompiler(JavaCompilerFactory.getJdkCompiler(), classLoader, charset,
-          intrusive, compilationTimeout);
+          compilationTimeout);
     }
 
     public RuntimeCompiler withJavacCompiler() {
       return new RuntimeCompiler(JavaCompilerFactory.getJavacCompiler(), classLoader, charset,
-          intrusive, compilationTimeout);
+          compilationTimeout);
     }
 
     public RuntimeCompiler withCustomCompiler(JavaCompiler javaCompiler) {
-      return new RuntimeCompiler(javaCompiler, classLoader, charset, intrusive,
-          compilationTimeout);
+      return new RuntimeCompiler(javaCompiler, classLoader, charset, compilationTimeout);
     }
 
   }

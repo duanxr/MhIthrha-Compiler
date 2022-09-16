@@ -1,6 +1,5 @@
 package com.duanxr.mhithrha.component;
 
-import com.duanxr.mhithrha.RuntimeCompilerException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -8,7 +7,6 @@ import java.util.regex.Pattern;
  * @author 段然 2022/9/5
  */
 public class SimpleJavaCodeParser {
-
   private static final String CLASS_NAME_PATTERN_TEMPLATE = "(?<=(\\b)(%s)(\\b))(\\s+[^\\s{]+)(?=[\\s{])";
   private static final Pattern CLASS_NAME_PATTERN = Pattern.compile(
       CLASS_NAME_PATTERN_TEMPLATE.formatted(String.join("|",
@@ -31,7 +29,7 @@ public class SimpleJavaCodeParser {
       }
       return matcher.group().replaceAll("\\s", "");
     } catch (Exception e) {
-      throw new RuntimeCompilerException("can't find package name", e);
+      return null;
     }
   }
 
@@ -43,7 +41,7 @@ public class SimpleJavaCodeParser {
       }
       return matcher.group().replaceAll("\\s", "");
     } catch (Exception e) {
-      throw new RuntimeCompilerException("can't find class name", e);
+      return null;
     }
   }
 

@@ -13,7 +13,8 @@ public class JavaClassNameUtil {
   public static boolean inPackages(String packageName, String targetPackageName) {
     return inPackage(packageName, targetPackageName)
         || (packageName.startsWith(targetPackageName)
-            && packageName.charAt(targetPackageName.length()) == '.');
+        && packageName.length() > targetPackageName.length()
+        && packageName.charAt(targetPackageName.length()) == '.');
   }
 
   public static boolean inPackage(String packageName, String targetPackageName) {

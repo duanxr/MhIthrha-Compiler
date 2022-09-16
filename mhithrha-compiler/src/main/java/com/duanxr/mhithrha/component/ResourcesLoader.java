@@ -21,9 +21,7 @@ import lombok.extern.slf4j.Slf4j;
  * @author 段然 2022/9/7
  */
 @Slf4j
-@SuppressWarnings("resource")
 public class ResourcesLoader {
-
   private static final LoadingCache<File, JavaArchive> ARCHIVE_CACHE = Caffeine.newBuilder()
       .removalListener(ResourcesLoader::closeJavaArchive).expireAfterAccess(10, TimeUnit.MINUTES)
       .build(ResourcesLoader::loadJavaArchive);
