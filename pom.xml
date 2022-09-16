@@ -22,16 +22,6 @@
         <version>23.0.0</version>
       </dependency>
       <dependency>
-        <groupId>org.jetbrains</groupId>
-        <artifactId>annotations</artifactId>
-        <version>23.0.0</version>
-      </dependency>
-      <dependency>
-        <groupId>com.sun</groupId>
-        <artifactId>tools</artifactId>
-        <version>8</version>
-      </dependency>
-      <dependency>
         <groupId>org.slf4j</groupId>
         <artifactId>slf4j-api</artifactId>
         <version>1.7.36</version>
@@ -56,7 +46,11 @@
         <artifactId>caffeine</artifactId>
         <version>3.1.1</version>
       </dependency>
-
+      <dependency>
+        <groupId>com.google.guava</groupId>
+        <artifactId>guava</artifactId>
+        <version>31.1-jre</version>
+      </dependency>
       <dependency>
         <groupId>com.github.javaparser</groupId>
         <artifactId>javaparser-symbol-solver-core</artifactId>

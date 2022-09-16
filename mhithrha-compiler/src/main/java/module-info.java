@@ -13,5 +13,4 @@ module com.duanxr.mhithrha {
   requires jdk.compiler;
   requires com.github.benmanes.caffeine;
   requires java.management;
-  requires net.bytebuddy;
 }
