@@ -139,7 +139,7 @@ public class TestLauncher {
     simpleTest.testClassWithInterfaceWithoutName();
     simpleTest.testClassWithCatchingException();
     simpleTest.testClassWithCatchingExceptionWithoutName();
-    //todo simpleTest.testClassWithAnnotation();
+    simpleTest.testClassWithAnnotation();
     simpleTest.testInterface();
     simpleTest.testAbstractClass();
     simpleTest.testNonAsciiClass();

@@ -47,7 +47,7 @@ You can include in your project with
 
 Mh'Ithrha Compiler is based on the base java compiler, which there are three default options:
 
-1. [Eclipse Compiler](https://wiki.eclipse.org/JDT_Core_Programmer_Guide/ECJ)
+1. [Eclipse Compiler](https://www.eclipsecon.org/session-tags/eclipse-java-compiler-ecj)
 2. [Javac Compiler](https://docs.oracle.com/javase/7/docs/technotes/tools/windows/javac.html)
 3. [JDK Compiler](https://en.wikipedia.org/wiki/Java_Development_Kit)
 
@@ -76,6 +76,13 @@ compiler.addExtraClass(new File("../mhithrha-test/src/test/resources/ImportClass
 compiler.addExtraArchive(new File("../mhithrha-test/src/test/resources/lombok-1.18.24.jar"));
 ```
 
+## Lombok support
+
+In order to support lombok for compilation, you need to:
+1. Eclipse Compiler :  add jvm arg ``-javaagent:\<PATH\>/lombok.jar=ECJ`` to your program.
+2. Javac&JDK Compiler : add ``lombok.jar`` to class path with ``compiler.addExtraArchive(new File("\<PATH\>/lombok.jar"));``
+For more information see [here](https://projectlombok.org/setup/)
+
 ## More usage
 
 See [test cases](mhithrha-test\src\test\java\com\duanxr\mhithrha\test)
@@ -92,3 +99,7 @@ Interested in getting involved? We would like to help you!
 - Note: We prefer you to give your advise in issues, so others with a same question can search it quickly and we don't need to answer them repeatedly.
 
 
+## Thanks
+This project was developed based on the following projects:
+- [Eclipse-Java-Compiler](https://www.eclipsecon.org/session-tags/eclipse-java-compiler-ecj)
+- [Java-Runtime-Compiler](https://github.com/OpenHFT/Java-Runtime-Compiler)

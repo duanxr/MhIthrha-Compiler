@@ -70,6 +70,14 @@ compiler.loadSpringBootArchives();
 compiler.addExtraClass(new File("../mhithrha-test/src/test/resources/ImportClass.class"));
 compiler.addExtraArchive(new File("../mhithrha-test/src/test/resources/lombok-1.18.24.jar"));
 ```
+## Lombok支持
+
+为了支持lombok的编译，你需要:
+1. Eclipse Compiler :  添加jvm参数``-javaagent:\<PATH\>/lombok.jar=ECJ``。
+2. Javac&JDK Compiler : 用``compiler.addExtraArchive(new File("<PATH\>/lombok.jar"))``将``lombok.jar``添加到类路径中。
+
+更多信息见[这里](https://projectlombok.org/setup/)
+
 
 ## 更多用法
 
@@ -84,3 +92,9 @@ compiler.addExtraArchive(new File("../mhithrha-test/src/test/resources/lombok-1.
 * 如果是增加新的功能特性，请先创建一个 issue 并做简单描述以及大致的实现方法，提议被采纳后，就可以创建一个实现新特性的 Pull Request。
 * 欢迎对说明文档做出改善。
 * 如果你有任何其他方面的问题或，欢迎发送邮件至 admin@duanxr.com 。
+
+
+## 感谢
+这个项目是在以下项目的基础上开发的:
+- [Eclipse-Java-Compiler](https://www.eclipsecon.org/session-tags/eclipse-java-compiler-ecj)
+- [Java-Runtime-Compiler](https://github.com/OpenHFT/Java-Runtime-Compiler)
