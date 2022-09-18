@@ -5,9 +5,13 @@
 [README](README.md) | [中文文档](README_zh.md)
 
 Mh'Ithrha编译器是一个Java运行时编译器，它允许你在运行时编译Java源代码然后加载类。
+
 它支持Java 17，你可以在没有`JDK`的情况下使用它。
+
 你可以一次编译多个类，以防它们相互依赖。
+
 你也可以在运行时添加外部的`.class`和`.jar`文件作为编译依赖项。
+
 它还支持从`Spring Boot Maven Plugin`的 fat jar 中加载`.class`和`.jar`文件作为编译依赖项。
 
 ## 通过Maven导入
@@ -81,7 +85,7 @@ compiler.addExtraArchive(new File("../mhithrha-test/src/test/resources/lombok-1.
 
 ## 更多用法
 
-见[测试用例](mhithrha-test\src\test\java\com\duanxr\mhithrha\test)
+见[测试用例](https://github.com/duanxr/MhIthrha-Compiler/tree/main/mhithrha-test/src/test/java/com/duanxr/mhithrha/test/cases)
 
 ## 贡献
 

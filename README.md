@@ -85,7 +85,7 @@ For more information see [here](https://projectlombok.org/setup/)
 
 ## More usage
 
-See [test cases](mhithrha-test\src\test\java\com\duanxr\mhithrha\test)
+See [test cases](https://github.com/duanxr/MhIthrha-Compiler/tree/main/mhithrha-test/src/test/java/com/duanxr/mhithrha/test/cases)
 
 ## Contributing
 
